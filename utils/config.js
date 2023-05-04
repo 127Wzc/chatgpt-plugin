@@ -103,12 +103,16 @@ const defaultConfig = {
   slackClaudeGlobalPreset: '',
   slackClaudeSpecifiedChannel: '',
   cloudTranscode: 'https://silk.201666.xyz',
+  cloudRender: false,
   cloudMode: 'url',
   ttsMode: 'vits-uma-genshin-honkai', // or azure
   azureTTSKey: '',
   azureTTSRegion: '',
   azureTTSSpeaker: 'zh-CN-XiaochenNeural',
-  version: 'v2.5.7'
+  voicevoxSpace: '',
+  voicevoxTTSSpeaker: '护士机器子T',
+  version: 'v2.5.8'
+
 }
 const _path = process.cwd()
 let config = {}
