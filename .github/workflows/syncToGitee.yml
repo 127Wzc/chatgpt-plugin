@@ -14,6 +14,6 @@ jobs:
           dst: 'gitee/127Wzc'
           dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
           dst_token:  ${{ secrets.GITEE_TOKEN }}
-          static_list: "learn-typescript"
+          static_list: "chatgpt-plugin"
           force_update: true
           debug: true
