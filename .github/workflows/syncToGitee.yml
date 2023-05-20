@@ -11,7 +11,7 @@ jobs:
         uses: Yikun/hub-mirror-action@master
         with:
           src: 'github/127Wzc'
-          dst: 'gitee/127Wzc'
+          dst: 'gitee/wzc_Test'
           dst_key: ${{ secrets.GITEE_PRIVATE_KEY }}
           dst_token:  ${{ secrets.GITEE_TOKEN }}
           static_list: "chatgpt-plugin"
