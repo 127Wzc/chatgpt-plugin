@@ -61,6 +61,8 @@ import { SerpIkechan8370Tool } from '../utils/tools/SerpIkechan8370Tool.js'
 import { SendPictureTool } from '../utils/tools/SendPictureTool.js'
 import { SerpImageTool } from '../utils/tools/SearchImageTool.js'
 import { ImageCaptionTool } from '../utils/tools/ImageCaptionTool.js'
+import {TTSTool} from "../utils/tools/TTSTool.js";
+import {ProcessPictureTool} from "../utils/tools/ProcessPictureTool.js";
 try {
   await import('emoji-strip')
 } catch (err) {
@@ -1557,6 +1559,9 @@ export class chatgpt extends plugin {
               if (bingToken?.indexOf('=') > -1) {
                 cookies = bingToken
               }
+              if (!bingAIClient.opts) {
+                bingAIClient.opts = {}
+              }
               bingAIClient.opts.userToken = bingToken
               bingAIClient.opts.cookies = cookies
               opt.messageType = allThrottled ? 'Chat' : 'SearchQuery'
@@ -1968,7 +1973,9 @@ export class chatgpt extends plugin {
             new SearchVideoTool(),
             new SerpImageTool(),
             new SerpIkechan8370Tool(),
-            new SerpTool()
+            new SerpTool(),
+            new TTSTool(),
+            new ProcessPictureTool()
           ]
           // todo 3.0再重构tool的插拔和管理
           let tools = [
@@ -1981,6 +1988,8 @@ export class chatgpt extends plugin {
             new KickOutTool(),
             new WeatherTool(),
             new SendPictureTool(),
+            new TTSTool(),
+
             serpTool
           ]
           let img = []
@@ -2006,6 +2015,7 @@ export class chatgpt extends plugin {
           }
           if (img.length > 0 && Config.extraUrl) {
             tools.push(new ImageCaptionTool())
+            tools.push(new ProcessPictureTool())
             prompt += `\nthe url of the picture(s) above: ${img.join(', ')}`
           } else {
             tools.push(new SerpImageTool())
@@ -2041,7 +2051,16 @@ export class chatgpt extends plugin {
             logger.info(msg)
             while (msg.functionCall) {
               let { name, arguments: args } = msg.functionCall
-              let functionResult = await fullFuncMap[name].exec(Object.assign({ isAdmin, sender }, JSON.parse(args)))
+              args = JSON.parse(args)
+              if (!args.groupId) {
+                args.groupId = e.group_id || e.sender.user_id
+              }
+              try {
+                parseInt(args.groupId)
+              } catch (err) {
+                args.groupId = e.group_id || e.sender.user_id
+              }
+              let functionResult = await fullFuncMap[name].exec(Object.assign({ isAdmin, sender }, args))
               logger.mark(`function ${name} execution result: ${functionResult}`)
               option.parentMessageId = msg.id
               option.name = name
