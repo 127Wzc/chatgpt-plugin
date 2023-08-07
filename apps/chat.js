@@ -66,7 +66,7 @@ import { SendDiceTool } from '../utils/tools/SendDiceTool.js'
 import { SendAvatarTool } from '../utils/tools/SendAvatarTool.js'
 import { SendMessageToSpecificGroupOrUserTool } from '../utils/tools/SendMessageToSpecificGroupOrUserTool.js'
 import { SetTitleTool } from '../utils/tools/SetTitleTool.js'
-import { createCaptcha, solveCaptcha } from '../utils/bingCaptcha.js'
+import { createCaptcha, solveCaptcha, solveCaptchaOneShot } from '../utils/bingCaptcha.js'
 
 try {
   await import('emoji-strip')
@@ -233,7 +233,7 @@ export class chatgpt extends plugin {
           reg: '^#chatgpt删除对话',
           fnc: 'deleteConversation',
           permission: 'master'
-        },
+        }
         // {
         //   reg: '^#chatgpt必应验证码',
         //   fnc: 'bingCaptcha'
@@ -1207,8 +1207,8 @@ export class chatgpt extends plugin {
         // 处理多行回复有时候只会读第一行和azure语音会读出一些标点符号的问题
         ttsResponse = ttsResponse.replace(/[-:_；*;\n]/g, '，')
         // 先把文字回复发出去，避免过久等待合成语音
-        if (Config.alsoSendText || ttsResponse.length > Config.ttsAutoFallbackThreshold) {
-          if (Config.ttsMode === 'vits-uma-genshin-honkai' && ttsResponse.length > Config.ttsAutoFallbackThreshold) {
+        if (Config.alsoSendText || ttsResponse.length > parseInt(Config.ttsAutoFallbackThreshold)) {
+          if (Config.ttsMode === 'vits-uma-genshin-honkai' && ttsResponse.length > parseInt(Config.ttsAutoFallbackThreshold)) {
             await this.reply('回复的内容过长，已转为文本模式')
           }
           await this.reply(await convertFaces(response, Config.enableRobotAt, e), e.isGroup)
@@ -1441,7 +1441,7 @@ export class chatgpt extends plugin {
     let cacheData = await this.cacheContent(e, use, content, prompt, quote, mood, suggest, imgUrls)
     const template = use !== 'bing' ? 'content/ChatGPT/index' : 'content/Bing/index'
     if (!Config.oldview) {
-      if (cacheData.error || cacheData.status != 200) { await this.reply(`出现错误：${cacheData.error || 'server error ' + cacheData.status}`, true) } else { await e.reply(await renderUrl(e, (Config.viewHost ? `${Config.viewHost}/` : `http://127.0.0.1:${Config.serverPort || 3321}/`) + `page/${cacheData.file}?qr=${Config.showQRCode ? 'true' : 'false'}`, { retType: Config.quoteReply ? 'base64' : '', Viewport: { width: Config.chatViewWidth, height: parseInt(Config.chatViewWidth * 0.56) }, func: (Config.live2d && !Config.viewHost) ? 'window.Live2d == true' : '', deviceScaleFactor: Config.cloudDPR }), e.isGroup && Config.quoteReply) }
+      if (cacheData.error || cacheData.status != 200) { await this.reply(`出现错误：${cacheData.error || 'server error ' + cacheData.status}`, true) } else { await e.reply(await renderUrl(e, (Config.viewHost ? `${Config.viewHost}/` : `http://127.0.0.1:${Config.serverPort || 3321}/`) + `page/${cacheData.file}?qr=${Config.showQRCode ? 'true' : 'false'}`, { retType: Config.quoteReply ? 'base64' : '', Viewport: { width: parseInt(Config.chatViewWidth), height: parseInt(parseInt(Config.chatViewWidth) * 0.56) }, func: (parseFloat(Config.live2d) && !Config.viewHost) ? 'window.Live2d == true' : '', deviceScaleFactor: parseFloat(Config.cloudDPR) }), e.isGroup && Config.quoteReply) }
     } else {
       if (Config.cacheEntry) cacheData.file = randomString()
       const cacheresOption = {
@@ -1678,42 +1678,44 @@ export class chatgpt extends plugin {
           } catch (error) {
             logger.error(error)
             const message = error?.message || error?.data?.message || error || '出错了'
-            // if (message && typeof message === 'string' && message.indexOf('CaptchaChallenge') > -1) {
-            //   if (bingToken) {
-            //     // let { id, regionId, image } = await createCaptcha(e, bingToken)
-            //     // e.bingCaptchaId = id
-            //     // e.token = bingToken
-            //     // e.regionId = regionId
-            //     // const {
-            //     //   conversationSignature,
-            //     //   conversationId,
-            //     //   clientId
-            //     // } = error?.conversation
-            //     // e.bingConversation = {
-            //     //   conversationSignature,
-            //     //   conversationId,
-            //     //   clientId
-            //     // }
-            //     return {
-            //       text: '请在60秒内输入下面图片以通过必应人机验证',
-            //       image,
-            //       error: true,
-            //       token: bingToken
-            //     }
-            //   }
-            // } else
-            if (message && typeof message === 'string' && message.indexOf('限流') > -1) {
-              throttledTokens.push(bingToken)
-              let bingTokens = JSON.parse(await redis.get('CHATGPT:BING_TOKENS'))
-              const badBingToken = bingTokens.findIndex(element => element.Token === bingToken)
-              const now = new Date()
-              const hours = now.getHours()
-              now.setHours(hours + 6)
-              bingTokens[badBingToken].State = '受限'
-              bingTokens[badBingToken].DisactivationTime = now
-              await redis.set('CHATGPT:BING_TOKENS', JSON.stringify(bingTokens))
+            const { maxConv } = error
+            if (message && typeof message === 'string' && message.indexOf('CaptchaChallenge') > -1) {
+              if (bingToken) {
+                if (maxConv > 20) {
+                  // maxConv为30说明token有效，可以通过解验证码码服务过码
+                  await e.reply('出现必应验证码，尝试解决中')
+                  try {
+                    let captchaResolveResult = await solveCaptchaOneShot(bingToken)
+                    if (captchaResolveResult?.success) {
+                      await e.reply('验证码已解决')
+                    } else {
+                      logger.error(captchaResolveResult)
+                      await e.reply('验证码解决失败: ' + captchaResolveResult.error)
+                      retry = 0
+                    }
+                  } catch (err) {
+                    logger.error(err)
+                    await e.reply('验证码解决失败: ' + err)
+                    retry = 0
+                  }
+                } else {
+                  // 未登录用户maxConv目前为5或10，出验证码没救
+                  logger.warn(`token [${bingToken}] 无效或已过期`)
+                }
+              }
+            } else
+              if (message && typeof message === 'string' && message.indexOf('限流') > -1) {
+                throttledTokens.push(bingToken)
+                let bingTokens = JSON.parse(await redis.get('CHATGPT:BING_TOKENS'))
+                const badBingToken = bingTokens.findIndex(element => element.Token === bingToken)
+                const now = new Date()
+                const hours = now.getHours()
+                now.setHours(hours + 6)
+                bingTokens[badBingToken].State = '受限'
+                bingTokens[badBingToken].DisactivationTime = now
+                await redis.set('CHATGPT:BING_TOKENS', JSON.stringify(bingTokens))
               // 不减次数
-            } else if (message && typeof message === 'string' && message.indexOf('UnauthorizedRequest') > -1) {
+              } else if (message && typeof message === 'string' && message.indexOf('UnauthorizedRequest') > -1) {
               // token过期了
               // let bingTokens = JSON.parse(await redis.get('CHATGPT:BING_TOKENS'))
               // const badBingToken = bingTokens.findIndex(element => element.Token === bingToken)
@@ -1729,12 +1731,12 @@ export class chatgpt extends plugin {
               //   bingTokens[badBingToken].exception = 1
               // }
               // await redis.set('CHATGPT:BING_TOKENS', JSON.stringify(bingTokens))
-              logger.warn(`token${bingToken}疑似不存在或已过期，再试试`)
-              retry = retry - 0.1
-            } else {
-              retry--
-              errorMessage = message === 'Timed out waiting for response. Try enabling debug mode to see more information.' ? (reply ? `${reply}\n不行了，我的大脑过载了，处理不过来了!` : '必应的小脑瓜不好使了，不知道怎么回答！') : message
-            }
+                logger.warn(`token${bingToken}疑似不存在或已过期，再试试`)
+                retry = retry - 0.1
+              } else {
+                retry--
+                errorMessage = message === 'Timed out waiting for response. Try enabling debug mode to see more information.' ? (reply ? `${reply}\n不行了，我的大脑过载了，处理不过来了!` : '必应的小脑瓜不好使了，不知道怎么回答！') : message
+              }
           }
         } while (retry > 0)
         if (errorMessage) {
