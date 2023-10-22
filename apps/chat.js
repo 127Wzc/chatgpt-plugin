@@ -9,6 +9,7 @@ import SydneyAIClient from '../utils/SydneyAIClient.js'
 import { PoeClient } from '../utils/poe/index.js'
 import AzureTTS from '../utils/tts/microsoft-azure.js'
 import VoiceVoxTTS from '../utils/tts/voicevox.js'
+import Version from '../utils/version.js'
 import {
   render,
   renderUrl,
@@ -25,7 +26,15 @@ import {
   getUserReplySetting,
   getImageOcrText,
   getImg,
-  getMaxModelTokens, formatDate, generateAudio, formatDate2, mkdirs
+  getMaxModelTokens,
+  formatDate,
+  generateAudio,
+  formatDate2,
+  mkdirs,
+  getUin,
+  downloadFile,
+  isPureText,
+  extractContentFromFile
 } from '../utils/common.js'
 import { ChatGPTPuppeteer } from '../utils/browser.js'
 import { KeyvFile } from 'keyv-file'
@@ -315,7 +324,7 @@ export class chatgpt extends plugin {
     }
     let ats = e.message.filter(m => m.type === 'at')
     const isAtMode = Config.toggleMode === 'at'
-    if (isAtMode) ats = ats.filter(item => item.qq !== Bot.uin)
+    if (isAtMode) ats = ats.filter(item => item.qq !== getUin(e))
     if (ats.length === 0) {
       if (use === 'api3') {
         await redis.del(`CHATGPT:QQ_CONVERSATION:${(e.isGroup && Config.groupMerge) ? e.group_id.toString() : e.sender.user_id}`)
@@ -548,7 +557,7 @@ export class chatgpt extends plugin {
       await this.reply('本功能当前仅支持API3模式', true)
       return false
     }
-    if (ats.length === 0 || (ats.length === 1 && e.atme)) {
+    if (ats.length === 0 || (ats.length === 1 && (e.atme || e.atBot))) {
       let conversationId = _.trimStart(e.msg, '#chatgpt删除对话').trim()
       if (!conversationId) {
         await this.reply('指令格式错误，请同时加上对话id或@某人以删除他当前进行的对话', true)
@@ -756,48 +765,53 @@ export class chatgpt extends plugin {
    * #chatgpt
    */
   async chatgpt (e) {
+    let msg = Version.isTrss ? e.msg : e.raw_message
     let prompt
     if (this.toggleMode === 'at') {
-      if (!e.raw_message || e.msg?.startsWith('#')) {
+      if (!msg || e.msg?.startsWith('#')) {
         return false
       }
-      if (e.isGroup && !e.atme) {
+      if ((e.isGroup || e.group_id) && !(e.atme || e.atBot)) {
         return false
       }
-      if (e.user_id == Bot.uin) return false
-      prompt = e.raw_message.trim()
-      if (e.isGroup && typeof this.e.group.getMemberMap === 'function') {
-        let mm = await this.e.group.getMemberMap()
-        let me = mm.get(Bot.uin)
-        let card = me.card
-        let nickname = me.nickname
-        if (nickname && card) {
-          if (nickname.startsWith(card)) {
-            // 例如nickname是"滚筒洗衣机"，card是"滚筒"
-            prompt = prompt.replace(`@${nickname}`, '').trim()
-          } else if (card.startsWith(nickname)) {
-            // 例如nickname是"十二"，card是"十二｜本月已发送1000条消息"
-            prompt = prompt.replace(`@${card}`, '').trim()
-            // 如果是好友，显示的还是昵称
-            prompt = prompt.replace(`@${nickname}`, '').trim()
-          } else {
-            // 互不包含，分别替换
-            if (nickname) {
+      if (e.user_id == getUin(e)) return false
+      prompt = msg.trim()
+      try {
+        if (e.isGroup && typeof this.e.group.getMemberMap === 'function') {
+          let mm = await this.e.group.getMemberMap()
+          let me = mm.get(getUin(e)) || {}
+          let card = me.card
+          let nickname = me.nickname
+          if (nickname && card) {
+            if (nickname.startsWith(card)) {
+              // 例如nickname是"滚筒洗衣机"，card是"滚筒"
               prompt = prompt.replace(`@${nickname}`, '').trim()
-            }
-            if (card) {
+            } else if (card.startsWith(nickname)) {
+              // 例如nickname是"十二"，card是"十二｜本月已发送1000条消息"
               prompt = prompt.replace(`@${card}`, '').trim()
+              // 如果是好友，显示的还是昵称
+              prompt = prompt.replace(`@${nickname}`, '').trim()
+            } else {
+              // 互不包含，分别替换
+              if (nickname) {
+                prompt = prompt.replace(`@${nickname}`, '').trim()
+              }
+              if (card) {
+                prompt = prompt.replace(`@${card}`, '').trim()
+              }
             }
+          } else if (nickname) {
+            prompt = prompt.replace(`@${nickname}`, '').trim()
+          } else if (card) {
+            prompt = prompt.replace(`@${card}`, '').trim()
           }
-        } else if (nickname) {
-          prompt = prompt.replace(`@${nickname}`, '').trim()
-        } else if (card) {
-          prompt = prompt.replace(`@${card}`, '').trim()
         }
+      } catch (err) {
+        logger.warn(err)
       }
     } else {
       let ats = e.message.filter(m => m.type === 'at')
-      if (!e.atme && ats.length > 0) {
+      if (!(e.atme || e.atBot) && ats.length > 0) {
         if (Config.debug) {
           logger.mark('艾特别人了，没艾特我，忽略#chat')
         }
@@ -1324,7 +1338,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#chat1')
       }
@@ -1343,7 +1357,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#chat3')
       }
@@ -1362,7 +1376,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#chatglm')
       }
@@ -1381,7 +1395,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#bing')
       }
@@ -1400,7 +1414,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#claude2')
       }
@@ -1419,7 +1433,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#claude')
       }
@@ -1438,7 +1452,7 @@ export class chatgpt extends plugin {
       return false
     }
     let ats = e.message.filter(m => m.type === 'at')
-    if (!e.atme && ats.length > 0) {
+    if (!(e.atme || e.atBot) && ats.length > 0) {
       if (Config.debug) {
         logger.mark('艾特别人了，没艾特我，忽略#xh')
       }
@@ -1477,7 +1491,7 @@ export class chatgpt extends plugin {
         chatViewBotName: Config.chatViewBotName || '',
         entry: cacheData.file,
         userImg: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${e.sender.user_id}`,
-        botImg: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${Bot.uin}`,
+        botImg: `https://q1.qlogo.cn/g?b=qq&s=0&nk=${getUin(e)}`,
         cacheHost: Config.serverHost,
         qq: e.sender.user_id
       })
@@ -1586,33 +1600,54 @@ export class chatgpt extends plugin {
                   opt.qq = e.sender.user_id
                   opt.nickname = e.sender.card
                   opt.groupName = e.group.name
-                  opt.botName = e.isGroup ? (e.group.pickMember(Bot.uin).card || e.group.pickMember(Bot.uin).nickname) : Bot.nickname
+                  opt.botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
                   let master = (await getMasterQQ())[0]
                   if (master && e.group) {
                     opt.masterName = e.group.pickMember(parseInt(master)).card || e.group.pickMember(parseInt(master)).nickname
                   }
                   if (master && !e.group) {
-                    opt.masterName = Bot.getFriendList().get(parseInt(master))?.nickname
+                    opt.masterName = e.bot.getFriendList().get(parseInt(master))?.nickname
                   }
-                  let latestChat = await e.group.getChatHistory(0, 1)
-                  let seq = latestChat[0].seq
-                  let chats = []
-                  while (chats.length < Config.groupContextLength) {
-                    let chatHistory = await e.group.getChatHistory(seq, 20)
-                    chats.push(...chatHistory)
+                  let latestChats = await e.group.getChatHistory(0, 1)
+                  if (latestChats.length > 0) {
+                    let latestChat = latestChats[0]
+                    if (latestChat) {
+                      let seq = latestChat.seq
+                      let chats = []
+                      while (chats.length < Config.groupContextLength) {
+                        let chatHistory = await e.group.getChatHistory(seq, 20)
+                        chats.push(...chatHistory)
+                      }
+                      chats = chats.slice(0, Config.groupContextLength)
+                      let mm = await e.group.getMemberMap()
+                      chats.forEach(chat => {
+                        let sender = mm.get(chat.sender.user_id)
+                        if (sender) {
+                          chat.sender = sender
+                        }
+                      })
+                      // console.log(chats)
+                      opt.chats = chats
+                    }
                   }
-                  chats = chats.slice(0, Config.groupContextLength)
-                  let mm = await e.group.getMemberMap()
-                  chats.forEach(chat => {
-                    let sender = mm.get(chat.sender.user_id)
-                    chat.sender = sender
-                  })
-                  // console.log(chats)
-                  opt.chats = chats
                 } catch (err) {
                   logger.warn('获取群聊聊天记录失败，本次对话不携带聊天记录', err)
                 }
               }
+              let toSummaryFileContent
+              try {
+                if (e.source) {
+                  let msgs = e.isGroup ? await e.group.getChatHistory(e.source.seq, 1) : await e.friend.getChatHistory(e.source.time, 1)
+                  let sourceMsg = msgs[0]
+                  let fileMsgElem = sourceMsg.message.find(msg => msg.type === 'file')
+                  if (fileMsgElem) {
+                    toSummaryFileContent = await extractContentFromFile(fileMsgElem, e)
+                  }
+                }
+              } catch (err) {
+                logger.warn('读取文件内容出错， 忽略文件内容', err)
+              }
+              opt.toSummaryFileContent = toSummaryFileContent
             } else {
               // 重新创建client，因为token可能换到别的了
               if (bingToken?.indexOf('=') > -1) {
@@ -1665,16 +1700,24 @@ export class chatgpt extends plugin {
               if (Config.debug) {
                 logger.mark(`开始生成内容：${response.details.imageTag}`)
               }
-              let client = new BingDrawClient({
-                baseUrl: Config.sydneyReverseProxy,
-                userToken: bingToken
-              })
-              await redis.set(`CHATGPT:DRAW:${e.sender.user_id}`, 'c', { EX: 30 })
-              try {
-                await client.getImages(response.details.imageTag, e)
-              } catch (err) {
-                await redis.del(`CHATGPT:DRAW:${e.sender.user_id}`)
-                await e.reply('绘图失败：' + err)
+              if (Config.bingAPDraw) {
+                // 调用第三方API进行绘图
+                let apDraw = new APTool()
+                apDraw.func({
+                  prompt: response.details.imageTag
+                }, e)
+              } else {
+                let client = new BingDrawClient({
+                  baseUrl: Config.sydneyReverseProxy,
+                  userToken: bingToken
+                })
+                await redis.set(`CHATGPT:DRAW:${e.sender.user_id}`, 'c', { EX: 30 })
+                try {
+                  await client.getImages(response.details.imageTag, e)
+                } catch (err) {
+                  await redis.del(`CHATGPT:DRAW:${e.sender.user_id}`)
+                  await e.reply('绘图失败：' + err)
+                }
               }
             }
 
@@ -1712,8 +1755,11 @@ export class chatgpt extends plugin {
                   }
                 } else {
                   // 未登录用户maxConv目前为5或10，出验证码没救
-                  logger.warn(`token [${bingToken}] 无效或已过期`)
+                  logger.warn(`token [${bingToken}] 无效或已过期，如确认token无误，请前往网页版必应对话一次`)
+                  retry = 0
                 }
+              } else {
+                retry = 0
               }
             } else
               if (message && typeof message === 'string' && message.indexOf('限流') > -1) {
@@ -1869,40 +1915,30 @@ export class chatgpt extends plugin {
           debug: Config.debug,
           proxy: Config.proxy
         })
-        let fileUrl, filename, attachments
-        if (e.source && e.source.message === '[文件]') {
-          if (e.isGroup) {
-            let source = (await e.group.getChatHistory(e.source.seq, 1))[0]
-            let file = source.message.find(m => m.type === 'file')
-            if (file) {
-              filename = file.name
-              fileUrl = await e.group.getFileUrl(file.fid)
-            }
-          } else {
-            let source = (await e.friend.getChatHistory(e.source.time, 1))[0]
-            let file = source.message.find(m => m.type === 'file')
-            if (file) {
-              filename = file.name
-              fileUrl = await e.group.getFileUrl(file.fid)
+        let toSummaryFileContent
+        try {
+          if (e.source) {
+            let msgs = e.isGroup ? await e.group.getChatHistory(e.source.seq, 1) : await e.friend.getChatHistory(e.source.time, 1)
+            let sourceMsg = msgs[0]
+            let fileMsgElem = sourceMsg.message.find(msg => msg.type === 'file')
+            if (fileMsgElem) {
+              toSummaryFileContent = await extractContentFromFile(fileMsgElem, e)
             }
           }
+        } catch (err) {
+          logger.warn('读取文件内容出错， 忽略文件内容', err)
         }
-        if (fileUrl) {
-          logger.info('文件地址：' + fileUrl)
-          mkdirs('data/chatgpt/files')
-          let destinationPath = 'data/chatgpt/files/' + filename
-          const response = await fetch(fileUrl)
-          const fileStream = fs.createWriteStream(destinationPath)
-          await new Promise((resolve, reject) => {
-            response.body.pipe(fileStream)
-            response.body.on('error', (err) => {
-              reject(err)
-            })
-            fileStream.on('finish', () => {
-              resolve()
-            })
+
+        let attachments = []
+        if (toSummaryFileContent?.content) {
+          attachments.push({
+            extracted_content: toSummaryFileContent.content,
+            file_name: toSummaryFileContent.name,
+            file_type: 'pdf',
+            file_size: 200312,
+            totalPages: 20
           })
-          attachments = [await client.convertDocument(destinationPath, filename)]
+          logger.info(toSummaryFileContent.content)
         }
         if (conversationId) {
           return await client.sendMessage(prompt, conversationId, attachments)
@@ -2019,13 +2055,13 @@ export class chatgpt extends plugin {
             opt.qq = e.sender.user_id
             opt.nickname = e.sender.card
             opt.groupName = e.group.name
-            opt.botName = e.isGroup ? (e.group.pickMember(Bot.uin).card || e.group.pickMember(Bot.uin).nickname) : Bot.nickname
+            opt.botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
             let master = (await getMasterQQ())[0]
             if (master && e.group) {
               opt.masterName = e.group.pickMember(parseInt(master)).card || e.group.pickMember(parseInt(master)).nickname
             }
             if (master && !e.group) {
-              opt.masterName = Bot.getFriendList().get(parseInt(master))?.nickname
+              opt.masterName = e.bot.getFriendList().get(parseInt(master))?.nickname
             }
             let latestChat = await e.group.getChatHistory(0, 1)
             let seq = latestChat[0].seq
@@ -2063,7 +2099,7 @@ export class chatgpt extends plugin {
               system += chats
                 .map(chat => {
                   let sender = chat.sender || {}
-                  // if (sender.user_id === Bot.uin && chat.raw_message.startsWith('建议的回复')) {
+                  // if (sender.user_id === e.bot.uin && chat.raw_message.startsWith('建议的回复')) {
                   if (chat.raw_message.startsWith('建议的回复')) {
                     // 建议的回复太容易污染设定导致对话太固定跑偏了
                     return ''
@@ -2191,7 +2227,7 @@ export class chatgpt extends plugin {
             logger.mark(logger.green('【ChatGPT-Plugin】插件avocado-plugin未安装') + '，安装后可查看最近热映电影与体验可玩性更高的点歌工具。\n可前往 https://github.com/Qz-Sean/avocado-plugin 获取')
           }
           if (e.isGroup) {
-            let botInfo = await Bot.getGroupMemberInfo(e.group_id, Bot.uin, true)
+            let botInfo = await e.bot.getGroupMemberInfo(e.group_id, getUin(e), true)
             if (botInfo.role !== 'member') {
               // 管理员才给这些工具
               tools.push(...[new EditCardTool(), new JinyanTool(), new KickOutTool(), new HandleMessageMsgTool(), new SetTitleTool()])
@@ -2443,7 +2479,7 @@ export class chatgpt extends plugin {
     }
     if (bots.code === 0) {
       if (bots.data.pageList.length > 0) {
-        this.reply(await makeForwardMsg(this.e, bots.data.pageList.map(msg => `${msg.bot.botId} - ${msg.bot.botName}`)))
+        this.reply(await makeForwardMsg(this.e, bots.data.pageList.map(msg => `${msg.e.bot.botId} - ${msg.e.bot.botName}`)))
       } else {
         await e.reply('未查到相关助手', true)
       }
