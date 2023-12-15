@@ -1,4 +1,5 @@
 import plugin from '../../../lib/plugins/plugin.js'
+import { exec } from 'child_process'
 import { Config } from '../utils/config.js'
 import {
   formatDuration,
@@ -20,6 +21,23 @@ import fs from 'fs'
 import loader from '../../../lib/plugins/loader.js'
 import VoiceVoxTTS, { supportConfigurations as voxRoleList } from '../utils/tts/voicevox.js'
 import { supportConfigurations as azureRoleList } from '../utils/tts/microsoft-azure.js'
+import fetch from 'node-fetch'
+import { getProxy } from '../utils/proxy.js'
+
+let proxy = getProxy()
+const newFetch = (url, options = {}) => {
+  const defaultOptions = Config.proxy
+    ? {
+        agent: proxy(Config.proxy)
+      }
+    : {}
+  const mergedOptions = {
+    ...defaultOptions,
+    ...options
+  }
+
+  return fetch(url, mergedOptions)
+}
 
 export class ChatgptManagement extends plugin {
   constructor (e) {
@@ -110,6 +128,11 @@ export class ChatgptManagement extends plugin {
           permission: 'master'
         },
         {
+          reg: '^#chatgpt切换(Gemini|gemini)$',
+          fnc: 'useGeminiSolution',
+          permission: 'master'
+        },
+        {
           reg: '^#chatgpt切换星火$',
           fnc: 'useXinghuoBasedSolution',
           permission: 'master'
@@ -165,6 +188,11 @@ export class ChatgptManagement extends plugin {
         {
           reg: '^#chatgpt设置(API|key)(Key|key)$',
           fnc: 'setAPIKey',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt设置(Gemini|gemini)(Key|key)$',
+          fnc: 'setGeminiKey',
           permission: 'master'
         },
         {
@@ -252,7 +280,13 @@ export class ChatgptManagement extends plugin {
         },
         {
           reg: '^#chatgpt设置后台(刷新|refresh)(t|T)oken$',
-          fnc: 'setOpenAIPlatformToken'
+          fnc: 'setOpenAIPlatformToken',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt设置sessKey$',
+          fnc: 'getSessKey',
+          permission: 'master'
         },
         {
           reg: '^#(chatgpt)?查看回复设置$',
@@ -290,6 +324,11 @@ export class ChatgptManagement extends plugin {
         {
           reg: '^#chatgpt设置星火模型$',
           fnc: 'setXinghuoModel',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt修补Gemini$',
+          fnc: 'patchGemini',
           permission: 'master'
         }
       ]
@@ -879,6 +918,16 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     }
   }
 
+  async useGeminiSolution () {
+    let use = await redis.get('CHATGPT:USE')
+    if (use !== 'gemini') {
+      await redis.set('CHATGPT:USE', 'gemini')
+      await this.reply('已切换到基于Google Gemini的解决方案')
+    } else {
+      await this.reply('当前已经是gemini模式了')
+    }
+  }
+
   async useXinghuoBasedSolution () {
     let use = await redis.get('CHATGPT:USE')
     if (use !== 'xh') {
@@ -906,6 +955,57 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
       await this.reply('已切换到基于Bard的解决方案')
     } else {
       await this.reply('当前已经是Bard模式了')
+    }
+  }
+
+  async patchGemini () {
+    const _path = process.cwd()
+    let packageJson = fs.readFileSync(`${_path}/package.json`)
+    packageJson = JSON.parse(String(packageJson))
+    const packageName = '@google/generative-ai@0.1.1'
+    const patchLoc = 'plugins/chatgpt-plugin/patches/@google__generative-ai@0.1.1.patch'
+    if (!packageJson.pnpm) {
+      packageJson.pnpm = {
+        patchedDependencies: {
+          [packageName]: patchLoc
+        }
+      }
+    } else {
+      if (packageJson.pnpm.patchedDependencies) {
+        packageJson.pnpm.patchedDependencies[packageName] = patchLoc
+      } else {
+        packageJson.pnpm.patchedDependencies = {
+          [packageName]: patchLoc
+        }
+      }
+    }
+    fs.writeFileSync(`${_path}/package.json`, JSON.stringify(packageJson, null, 2))
+
+    function execSync (cmd) {
+      return new Promise((resolve, reject) => {
+        exec(cmd, (error, stdout, stderr) => {
+          resolve({ error, stdout, stderr })
+        })
+      })
+    }
+    async function checkPnpm () {
+      let npm = 'npm'
+      let ret = await execSync('pnpm -v')
+      if (ret.stdout) npm = 'pnpm'
+      return npm
+    }
+    let npmv = await checkPnpm()
+    if (npmv === 'pnpm') {
+      exec('pnpm i', {}, (error, stdout, stderr) => {
+        if (error) {
+          logger.error(error)
+          logger.error(stderr)
+          logger.info(stdout)
+          this.e.reply('失败，请查看日志手动操作')
+        } else {
+          this.e.reply('修补完成，请手动重启')
+        }
+      })
     }
   }
 
@@ -1114,8 +1214,8 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
   async saveAPIKey () {
     if (!this.e.msg) return
     let token = this.e.msg
-    if (!token.startsWith('sk-')) {
-      await this.reply('OpenAI API Key格式错误', true)
+    if (!token.startsWith('sk-') && !token.startsWith('sess-')) {
+      await this.reply('OpenAI API Key格式错误。如果是格式特殊的非官方Key请前往锅巴或工具箱手动设置', true)
       this.finish('saveAPIKey')
       return
     }
@@ -1123,6 +1223,21 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     Config.apiKey = token
     await this.reply('OpenAI API Key设置成功', true)
     this.finish('saveAPIKey')
+  }
+
+  async setGeminiKey (e) {
+    this.setContext('saveGeminiKey')
+    await this.reply('请发送Gemini API Key.获取地址：https://makersuite.google.com/app/apikey', true)
+    return false
+  }
+
+  async saveGeminiKey () {
+    if (!this.e.msg) return
+    let token = this.e.msg
+    // todo
+    Config.geminiKey = token
+    await this.reply('请发送Gemini API Key设置成功', true)
+    this.finish('saveGeminiKey')
   }
 
   async setXinghuoToken () {
@@ -1302,7 +1417,64 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
 
   async setOpenAIPlatformToken (e) {
     this.setContext('doSetOpenAIPlatformToken')
-    await e.reply('请发送refreshToken\n你可以在已登录的platform.openai.com后台界面打开调试窗口，在终端中执行\nJSON.parse(localStorage.getItem(Object.keys(localStorage).filter(k => k.includes(\'auth0\'))[0])).body.refresh_token\n如果仍不能查看余额，请退出登录重新获取刷新令牌')
+    await e.reply('请发送refreshToken\n你可以在已登录的platform.openai.com后台界面打开调试窗口，在终端中执行\nJSON.parse(localStorage.getItem(Object.keys(localStorage).filter(k => k.includes(\'auth0\'))[0])).body.refresh_token\n如果仍不能查看余额，请退出登录重新获取刷新令牌.设置后可以发送#chatgpt设置sessKey来将sessKey作为API Key使用')
+  }
+
+  async getSessKey (e) {
+    if (!Config.OpenAiPlatformRefreshToken) {
+      this.reply('当前未配置platform.openai.com的刷新token，请发送【#chatgpt设置后台刷新token】进行配置。')
+      return false
+    }
+    let authHost = 'https://auth0.openai.com'
+    if (Config.openAiBaseUrl && !Config.openAiBaseUrl.startsWith('https://api.openai.com')) {
+      authHost = Config.openAiBaseUrl.replace('/v1', '').replace('/v1/', '')
+    }
+    let refreshRes = await newFetch(`${authHost}/oauth/token`, {
+      method: 'POST',
+      body: JSON.stringify({
+        refresh_token: Config.OpenAiPlatformRefreshToken,
+        client_id: 'DRivsnm2Mu42T3KOpqdtwB3NYviHYzwD',
+        grant_type: 'refresh_token'
+      }),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+        'Content-Type': 'application/json'
+      }
+    })
+    if (refreshRes.status !== 200) {
+      let errMsg = await refreshRes.json()
+      logger.error(JSON.stringify(errMsg))
+      if (errMsg.error === 'access_denied') {
+        await e.reply('刷新令牌失效，请重新发送【#chatgpt设置后台刷新token】进行配置。建议退出platform.openai.com重新登录后再获取和配置')
+      } else {
+        await e.reply('获取失败')
+      }
+      return false
+    }
+    let newToken = await refreshRes.json()
+    // eslint-disable-next-line camelcase
+    const { access_token, refresh_token } = newToken
+    // eslint-disable-next-line camelcase
+    Config.OpenAiPlatformRefreshToken = refresh_token
+    let host = Config.openAiBaseUrl.replace('/v1', '').replace('/v1/', '')
+    let res = await newFetch(`${host}/dashboard/onboarding/login`, {
+      headers: {
+        // eslint-disable-next-line camelcase
+        Authorization: `Bearer ${access_token}`,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      },
+      method: 'POST'
+    })
+    if (res.status === 200) {
+      let authRes = await res.json()
+      let sess = authRes.user.session.sensitive_id
+      if (sess) {
+        Config.apiKey = sess
+        await e.reply('已成功将sessKey设置为apiKey，您可以发送#openai余额来查看该账号余额')
+      } else {
+        await e.reply('设置失败！')
+      }
+    }
   }
 
   async doSetOpenAIPlatformToken () {
