@@ -58,6 +58,12 @@ export function supportGuoba () {
           component: 'Switch'
         },
         {
+          field: 'enableToolbox',
+          label: '开启工具箱',
+          bottomHelpMessage: '独立的后台管理面板（默认3321端口），与锅巴类似。工具箱会有额外占用，启动速度稍慢，酌情开启。修改后需重启生效！！！',
+          component: 'Switch'
+        },
+        {
           field: 'enableMd',
           label: 'QQ开启markdown',
           bottomHelpMessage: 'qq的第三方md，非QQBot。需要适配器实现segment.markdown和segment.button方可使用，否则不建议开启，会造成各种错误。默认关闭',
@@ -174,11 +180,12 @@ export function supportGuoba () {
         {
           field: 'toneStyle',
           label: 'Bing模式',
-          bottomHelpMessage: 'Copilot的应答风格。默认为创意，可切换为精准，均支持添加设定',
+          bottomHelpMessage: 'Copilot的应答风格。默认为创意，可切换为精准或均衡，均为GPT-turbo',
           component: 'Select',
           componentProps: {
             options: [
               { label: '创意', value: 'Creative' },
+              { label: '均衡', value: 'Balanced' },
               { label: '精准', value: 'Precise' }
             ]
           }
@@ -213,22 +220,11 @@ export function supportGuoba () {
           component: 'Switch'
         },
         {
-          field: 'sydneyGPT4Turbo',
-          label: '使用GPT4-turbo',
-          bottomHelpMessage: '目前仅Copilot Pro可开启。非pro用户开启会报错。',
-          component: 'Switch'
-        },
-        {
           field: 'enableGenerateContents',
           label: '允许生成图像等内容',
           bottomHelpMessage: '开启后类似网页版能够发图。但是此选项会占用大量token，自设定等模式下容易爆token',
           component: 'Switch'
         },
-        // {
-        //   field: 'cognitiveReinforcementTip',
-        //   label: '加强主人认知的后台prompt',
-        //   component: 'InputTextArea'
-        // },
         {
           field: 'groupContextLength',
           label: '允许机器人读取近期的最多群聊聊天记录条数。',
@@ -296,6 +292,42 @@ export function supportGuoba () {
           component: 'Switch'
         },
         {
+          field: 'chatExampleUser1',
+          label: '前置对话第一轮（用户）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
+          field: 'chatExampleBot1',
+          label: '前置对话第一轮（AI）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
+          field: 'chatExampleUser2',
+          label: '前置对话第二轮（用户）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
+          field: 'chatExampleBot2',
+          label: '前置对话第二轮（AI）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
+          field: 'chatExampleUser3',
+          label: '前置对话第三轮（用户）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
+          field: 'chatExampleBot3',
+          label: '前置对话第三轮（AI）',
+          bottomHelpMessage: '会强行插入该轮对话，能有效抑制抱歉',
+          component: 'InputTextArea'
+        },
+        {
           label: '以下为API3方式的配置',
           component: 'Divider'
         },
@@ -334,50 +366,44 @@ export function supportGuoba () {
           component: 'Input'
         },
         {
-          label: '以下为Slack Claude方式的配置',
+          label: '以下为Claude API方式的配置',
           component: 'Divider'
         },
         {
-          field: 'slackUserToken',
-          label: 'Slack用户Token',
-          bottomHelpMessage: 'slackUserToken，在OAuth&Permissions页面获取。需要具有channels:history, chat:write, groups:history, im:history, mpim:history 这几个scope',
+          field: 'claudeApiKey',
+          label: 'claude API Key',
+          bottomHelpMessage: '前往 https://console.anthropic.com/settings/keys 注册和生成。可以填写多个，用英文逗号隔开',
+          component: 'InputPassword'
+        },
+        {
+          field: 'claudeApiModel',
+          label: 'claude API 模型',
+          bottomHelpMessage: '如 claude-3-sonnet-20240229 或 claude-3-opus-20240229',
           component: 'Input'
         },
         {
-          field: 'slackBotUserToken',
-          label: 'Slack Bot Token',
-          bottomHelpMessage: 'slackBotUserToken，在OAuth&Permissions页面获取。需要channels:history，groups:history，im:history 这几个scope',
+          field: 'claudeApiBaseUrl',
+          label: 'claude API 反代',
           component: 'Input'
         },
         {
-          field: 'slackClaudeUserId',
-          label: 'Slack成员id',
-          bottomHelpMessage: '在Slack中点击Claude头像查看详情，其中的成员ID复制过来',
-          component: 'Input'
+          field: 'claudeApiMaxToken',
+          label: 'claude 最大回复token数',
+          component: 'InputNumber'
         },
         {
-          field: 'slackSigningSecret',
-          label: 'Slack签名密钥',
-          bottomHelpMessage: 'Signing Secret。在Basic Information页面获取',
-          component: 'Input'
+          field: 'claudeApiTemperature',
+          label: 'claude 温度',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+            max: 1
+          }
         },
         {
-          field: 'slackClaudeSpecifiedChannel',
-          label: 'Slack指定频道',
-          bottomHelpMessage: '为空时，将为每个qq号建立私有频道。若填写了，对话将发生在本频道。和其他人公用workspace时建议用这个',
-          component: 'Input'
-        },
-        {
-          field: 'slackClaudeEnableGlobalPreset',
-          label: 'Claude使用全局设定',
-          bottomHelpMessage: '开启后，所有人每次发起新对话时，会先发送设定过去再开始对话，达到类似Bing自设定的效果。',
-          component: 'Switch'
-        },
-        {
-          field: 'slackClaudeGlobalPreset',
-          label: 'Slack全局设定',
-          bottomHelpMessage: '若启用全局设定，每个人都会默认使用这里的设定。',
-          component: 'Input'
+          field: 'claudeSystemPrompt',
+          label: 'claude 设定',
+          component: 'InputTextArea'
         },
         {
           label: '以下为Claude2方式的配置',

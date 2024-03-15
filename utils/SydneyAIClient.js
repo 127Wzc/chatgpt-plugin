@@ -1,23 +1,23 @@
 import fetch, {
-  Headers,
-  Request,
-  Response,
+  // Headers,
+  // Request,
+  // Response,
   FormData
 } from 'node-fetch'
 import crypto from 'crypto'
 import WebSocket from 'ws'
-import { Config, pureSydneyInstruction } from './config.js'
+import { Config } from './config.js'
 import { formatDate, getMasterQQ, isCN, getUserData, limitString } from './common.js'
 import moment from 'moment'
 import { getProxy } from './proxy.js'
 import common from '../../../lib/common/common.js'
-
-if (!globalThis.fetch) {
-  globalThis.fetch = fetch
-  globalThis.Headers = Headers
-  globalThis.Request = Request
-  globalThis.Response = Response
-}
+//
+// if (!globalThis.fetch) {
+//   globalThis.fetch = fetch
+//   globalThis.Headers = Headers
+//   globalThis.Request = Request
+//   globalThis.Response = Response
+// }
 // workaround for ver 7.x and ver 5.x
 let proxy = getProxy()
 
@@ -65,34 +65,40 @@ export default class SydneyAIClient {
         accept: 'application/json',
         'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
         'content-type': 'application/json',
-        // 'sec-ch-ua': '"Microsoft Edge";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
-        // 'sec-ch-ua-arch': '"x86"',
-        // 'sec-ch-ua-bitness': '"64"',
-        // 'sec-ch-ua-full-version': '"112.0.1722.7"',
-        // 'sec-ch-ua-full-version-list': '"Chromium";v="112.0.5615.20", "Microsoft Edge";v="112.0.1722.7", "Not:A-Brand";v="99.0.0.0"',
-        // 'sec-ch-ua-mobile': '?0',
-        // 'sec-ch-ua-model': '',
-        // 'sec-ch-ua-platform': '"macOS"',
-        // 'sec-ch-ua-platform-version': '"15.0.0"',
-        // 'sec-fetch-dest': 'empty',
-        // 'sec-fetch-mode': 'cors',
-        // 'sec-fetch-site': 'same-origin',
-        // 'x-ms-client-request-id': crypto.randomUUID(),
-        // 'x-ms-useragent': 'azsdk-js-api-client-factory/1.0.0-beta.1 core-rest-pipeline/1.10.3 OS/macOS',
+        'sec-ch-ua': '"Microsoft Edge";v="113", "Chromium";v="113", "Not-A.Brand";v="24"',
+        'sec-ch-ua-arch': '"x86"',
+        'sec-ch-ua-bitness': '"64"',
+        'sec-ch-ua-full-version': '"112.0.1722.7"',
+        'sec-ch-ua-full-version-list': '"Chromium";v="112.0.5615.20", "Microsoft Edge";v="112.0.1722.7", "Not:A-Brand";v="99.0.0.0"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-model': '',
+        'sec-ch-ua-platform': '"macOS"',
+        'sec-ch-ua-platform-version': '"15.0.0"',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-origin',
+        'x-ms-client-request-id': crypto.randomUUID(),
+        'x-ms-useragent': 'azsdk-js-api-client-factory/1.0.0-beta.1 core-rest-pipeline/1.10.3 OS/macOS',
         // cookie: this.opts.cookies || `_U=${this.opts.userToken}`,
-        Referer: 'https://edgeservices.bing.com/edgesvc/chat?udsframed=1&form=SHORUN&clientscopes=chat,noheader,channelstable,'
-        // 'Referrer-Policy': 'origin-when-cross-origin',
+        Referer: 'https://edgeservices.bing.com/edgesvc/chat?udsframed=1&form=SHORUN&clientscopes=chat,noheader,channelstable,',
+        'Referrer-Policy': 'origin-when-cross-origin'
         // Workaround for request being blocked due to geolocation
         // 'x-forwarded-for': '1.1.1.1'
       }
     }
     let initCk = 'SRCHD=AF=NOFORM; PPLState=1; SRCHHPGUSR=HV=' + new Date().getTime() + ';'
-    if (this.opts.userToken) {
+    if (this.opts.userToken || this.opts.cookies) {
       // 疑似无需token了
-      fetchOptions.headers.cookie = `${initCk} _U=${this.opts.userToken}`
-      let proTag = await redis.get('CHATGPT:COPILOT_PRO_TAG:' + this.opts.userToken)
+      if (!this.opts.cookies) {
+        fetchOptions.headers.cookie = `${initCk} _U=${this.opts.userToken}`
+      } else {
+        fetchOptions.headers.cookie = this.opts.cookies
+      }
+      // let hash = md5(this.opts.cookies || this.opts.userToken)
+      let hash = crypto.createHash('md5').update(this.opts.cookies || this.opts.userToken).digest('hex')
+      let proTag = await redis.get('CHATGPT:COPILOT_PRO_TAG:' + hash)
       if (!proTag) {
-        let indexContentRes = await fetch('https://www.bing.com', {
+        let indexContentRes = await fetch('https://www.bing.com/chat', {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
             Cookie: `_U=${this.opts.userToken}`
@@ -104,7 +110,7 @@ export default class SydneyAIClient {
         } else {
           proTag = 'false'
         }
-        await redis.set('CHATGPT:COPILOT_PRO_TAG:' + this.opts.userToken, proTag, { EX: 7200 })
+        await redis.set('CHATGPT:COPILOT_PRO_TAG:' + hash, proTag, { EX: 7200 })
       }
       if (proTag === 'true') {
         logger.info('当前账户为copilot pro用户')
@@ -123,12 +129,12 @@ export default class SydneyAIClient {
       this.opts.host = 'https://edgeservices.bing.com/edgesvc'
     }
     logger.mark('使用host：' + this.opts.host)
-    let response = await fetch(`${this.opts.host}/turing/conversation/create?bundleVersion=1.1381.12`, fetchOptions)
+    let response = await fetch(`${this.opts.host}/turing/conversation/create?bundleVersion=1.1626.12`, fetchOptions)
     let text = await response.text()
     let retry = 10
     while (retry >= 0 && response.status === 200 && !text) {
       await common.sleep(400)
-      response = await fetch(`${this.opts.host}/turing/conversation/create?bundleVersion=1.1381.12`, fetchOptions)
+      response = await fetch(`${this.opts.host}/turing/conversation/create?bundleVersion=1.1626.12`, fetchOptions)
       text = await response.text()
       retry--
     }
@@ -334,6 +340,21 @@ export default class SydneyAIClient {
     if (!text) {
       previousMessages = pm
     } else {
+      let example = []
+      for (let i = 1; i < 4; i++) {
+        if (Config[`chatExampleUser${i}`]) {
+          example.push(...[
+            {
+              text: Config[`chatExampleUser${i}`],
+              author: 'user'
+            },
+            {
+              text: Config[`chatExampleBot${i}`],
+              author: 'bot'
+            }
+          ])
+        }
+      }
       previousMessages = [
         {
           text,
@@ -343,6 +364,7 @@ export default class SydneyAIClient {
           text: '好的。',
           author: 'bot'
         },
+        ...example,
         ...pm
       ]
     }
@@ -362,56 +384,14 @@ export default class SydneyAIClient {
     if (tone.toLowerCase() === 'sydney' || tone.toLowerCase() === 'custom') {
       Config.toneStyle = 'Creative'
     }
-    const isCreative = tone.toLowerCase().includes('creative')
-    const toneOption = isCreative ? 'h3imaginative' : 'h3precise'
-    let optionsSets = [
-      'nlu_direct_response_filter',
-      'deepleo',
-      'disable_emoji_spoken_text',
-      'responsible_ai_policy_235',
-      'enablemm',
-      toneOption,
-      // 'dagslnv1',
-      // 'sportsansgnd',
-      // 'dl_edge_desc',
-      // 'noknowimg',
-      // 'dtappid',
-      // 'cricinfo',
-      // 'cricinfov2',
-      'dv3sugg',
-      // 'gencontentv3',
-      'iycapbing',
-      'iyxapbing',
-      // 'revimglnk',
-      // 'revimgsi2',
-      // 'revimgsrc1',
-      // 'revimgur',
-      // 'clgalileo',
-      'eredirecturl',
-      // copilot
-      'uquopt',
-      'papynoapi',
-      'gndlogcf',
-      'sapsgrd'
-    ]
-    if (!isCreative) {
-      optionsSets.push('clgalileo')
-    }
+    let optionsSets = getOptionSet(Config.toneStyle, Config.enableGenerateContents)
     let source = 'cib-ccp'; let gptId = 'copilot'
-    if (Config.enableGenerateContents) {
-      optionsSets.push(...['gencontentv3'])
-    }
     if (!Config.sydneyEnableSearch || toSummaryFileContent?.content) {
       optionsSets.push(...['nosearchall'])
     }
     if (isPro) {
       tone = tone + 'Classic'
       invocationId = 2
-    }
-    if (Config.sydneyGPT4Turbo) {
-      // tone = 'Creative'
-      // optionsSets.push('gpt4tmnc')
-      invocationId = 1
     }
     // wtf gpts?
     // if (Config.sydneyGPTs === 'Designer') {
@@ -452,30 +432,7 @@ export default class SydneyAIClient {
         'SearchQuery',
         'GeneratedCode'
       ],
-      sliceIds: [
-        'sappbcbt',
-        'inlineadsv2ho-prod',
-        'bgstream',
-        'dlidlat',
-        'autotts',
-        'dlid',
-        'sydoroff',
-        'voicemap',
-        '72enasright',
-        'semseronomon',
-        'srchqryfix',
-        'cmcpupsalltf',
-        'proupsallcf',
-        '206mems0',
-        '0209bicv3',
-        '205dcl1bt15',
-        'etlog',
-        'fpallsticy',
-        '0208papynoa',
-        'sapsgrd',
-        '1pgptwdes',
-        'newzigpt'
-      ],
+      sliceIds: [],
       requestId: crypto.randomUUID(),
       traceId: genRanHex(32),
       scenario: 'SERP',
@@ -533,10 +490,16 @@ export default class SydneyAIClient {
       conversationId,
       previousMessages,
       plugins: [
-        // {
-        //   id: 'c310c353-b9f0-4d76-ab0d-1dd5e979cf68'
-        // }
-      ]
+        {
+          id: 'c310c353-b9f0-4d76-ab0d-1dd5e979cf68',
+          category: 1
+        }
+      ],
+      extraExtensionParameters: {
+        'gpt-creator-persona': {
+          personaId: 'copilot'
+        }
+      }
     }
 
     if (encryptedconversationsignature) {
@@ -985,4 +948,74 @@ async function generateRandomIP () {
   ip = baseIP + randomIPSuffix
   await redis.set('CHATGPT:BING_IP', ip, { EX: 86400 * 7 })
   return ip
+}
+
+/**
+ *
+ * @param {'Precise' | 'Balanced' | 'Creative'} tone
+ */
+function getOptionSet (tone, generateContent = false) {
+  let optionset = [
+    'nlu_direct_response_filter',
+    'deepleo',
+    'disable_emoji_spoken_text',
+    'responsible_ai_policy_235',
+    'enablemm',
+    'dv3sugg',
+    'autosave',
+    'iyxapbing',
+    'iycapbing',
+    'enable_user_consent',
+    'fluxmemcst'
+  ]
+  switch (tone) {
+    case 'Precise':
+      optionset.push(...[
+        'h3precise',
+        'sunoupsell',
+        'botthrottle',
+        'dlimitationnc',
+        'hourthrot',
+        'elec2t',
+        'elecgnd',
+        'gndlogcf',
+        'eredirecturl',
+        'clgalileo',
+        'gencontentv3'
+      ])
+      break
+    case 'Balance':
+      optionset.push(...[
+        'galileo',
+        'saharagenconv5',
+        'sunoupsell',
+        'botthrottle',
+        'dlimitationnc',
+        'hourthrot',
+        'elec2t',
+        'elecgnd',
+        'gndlogcf',
+        'eredirecturl'
+      ])
+      break
+    case 'Creative':
+      optionset.push(...[
+        'h3imaginative',
+        'sunoupsell',
+        'botthrottle',
+        'dlimitationnc',
+        'hourthrot',
+        'elec2t',
+        'elecgnd',
+        'gndlogcf',
+        'eredirecturl',
+        'clgalileo',
+        'gencontentv3'
+      ])
+      break
+  }
+  if (generateContent) {
+    optionset.push('gencontentv3')
+  }
+  return optionset
 }
