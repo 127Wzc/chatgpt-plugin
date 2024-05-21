@@ -142,7 +142,7 @@ export class chatgpt extends plugin {
         },
         {
           /** 命令正则匹配 */
-          reg: toggleMode === 'at' ? '^[^#][sS]*' : '^#chat[^gpt][sS]*',
+          reg: toggleMode === 'at' ? '^#[sS]*' : '^#chat[^gpt][sS]*',
           /** 执行方法 */
           fnc: 'chatgpt',
           log: false

@@ -462,7 +462,7 @@ export async function createServer () {
       group: {
         isGroup: e.isGroup || e.group_id != undefined,
         group_id: e.group_id,
-        group_name: e.group_name || e.bot.gl?.get(e.group_id)?.group_name || e.group_id
+        group_name: e.group_name || e.bot?.gl?.get(e.group_id)?.group_name || e.group_id
       },
       quotable: {
         user_id: e.user_id,
