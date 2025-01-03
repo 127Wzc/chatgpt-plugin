@@ -624,7 +624,7 @@ ${translateLangLabels}
     })
     const response = await fetch(img[0])
     const base64Image = Buffer.from(await response.arrayBuffer())
-    let msg = e.msg.replace(/#(识图|图片识别|VQA|vqa)/, '') || 'describe this image in Simplified Chinese'
+    let msg = e.msg.replace(/#(识图|图片识别|VQA|vqa)/, '') + '.describe this image in Simplified Chinese'
     try {
       let res = await client.sendMessage(msg, {
         image: base64Image.toString('base64')
