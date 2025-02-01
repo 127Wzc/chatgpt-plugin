@@ -47,7 +47,10 @@ export class bym extends plugin {
     let opt = {
       maxOutputTokens: 500,
       temperature: 1,
-      replyPureTextCallback: e.reply
+      replyPureTextCallback: msg => {
+        msg = filterResponseChunk(msg)
+        msg && e.reply(msg)
+      }
     }
     let imgs = await getImg(e)
     if (!e.msg) {
