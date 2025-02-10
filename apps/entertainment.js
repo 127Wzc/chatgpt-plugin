@@ -68,7 +68,7 @@ export class Entertainment extends plugin {
           fnc: 'ocr'
         },
         {
-          reg: '^#url(：|:)',
+          reg: '^(#url(：|:)|https?://)\\S+$',
           fnc: 'screenshotUrl'
         },
         {
@@ -143,7 +143,7 @@ ${translateLangLabels}
     // 引用回复
     if (e.source) {
       if (pendingText.length) {
-        await this.reply('引用模式下不需要添加翻译文本，已自动忽略输入文本...((*・∀・）ゞ→→”', e.isGroup)
+        await this.reply('引用模式下不需要添加翻译文本，已自动忽略输入文本...((*・∀・）ゞ→→"', e.isGroup)
       }
     } else {
       if (isImg && pendingText) {
@@ -571,15 +571,20 @@ ${translateLangLabels}
         }
       }
     } else {
-      replyMsg = '无效的打招呼设置，请输入正确的命令。\n可发送”#chatgpt打招呼帮助“获取打招呼指北。'
+      replyMsg = '无效的打招呼设置，请输入正确的命令。\n可发送"#chatgpt打招呼帮助"获取打招呼指北。'
     }
     await this.reply(replyMsg)
     return false
   }
 
   async screenshotUrl (e) {
-    let url = e.msg.replace(/^#url(：|:)/, '')
+    let url = e.msg
+    if (url.startsWith('#url')) {
+      url = e.msg.replace(/^#url(：|:)/, '')
+    }
+    
     if (url.length === 0) { return false }
+    
     try {
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'http://' + url
@@ -599,7 +604,11 @@ ${translateLangLabels}
         ),
         e.isGroup && Config.quoteReply)
     } catch (err) {
-      this.reply('无效url:' + url)
+      // 如果是直接发送的链接，捕获到错误时不需要回复
+      if (url.startsWith('#url')) {
+        this.reply('无效url:' + url)
+      }
+      return false
     }
     return true
   }
