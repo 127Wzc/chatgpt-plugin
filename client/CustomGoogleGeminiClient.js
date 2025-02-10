@@ -10,7 +10,8 @@ export const HarmCategory = {
   HARM_CATEGORY_HATE_SPEECH: 'HARM_CATEGORY_HATE_SPEECH',
   HARM_CATEGORY_SEXUALLY_EXPLICIT: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
   HARM_CATEGORY_HARASSMENT: 'HARM_CATEGORY_HARASSMENT',
-  HARM_CATEGORY_DANGEROUS_CONTENT: 'HARM_CATEGORY_DANGEROUS_CONTENT'
+  HARM_CATEGORY_DANGEROUS_CONTENT: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+  HARM_CATEGORY_CIVIC_INTEGRITY: 'HARM_CATEGORY_CIVIC_INTEGRITY'
 }
 
 export const HarmBlockThreshold = {
@@ -18,7 +19,8 @@ export const HarmBlockThreshold = {
   BLOCK_LOW_AND_ABOVE: 'BLOCK_LOW_AND_ABOVE',
   BLOCK_MEDIUM_AND_ABOVE: 'BLOCK_MEDIUM_AND_ABOVE',
   BLOCK_ONLY_HIGH: 'BLOCK_ONLY_HIGH',
-  BLOCK_NONE: 'BLOCK_NONE'
+  BLOCK_NONE: 'BLOCK_NONE',
+  OFF: 'OFF'
 }
 
 /**
@@ -27,11 +29,35 @@ export const HarmBlockThreshold = {
  *   parts: Array<{
  *     text?: string,
  *     functionCall?: FunctionCall,
- *     functionResponse?: FunctionResponse
+ *     functionResponse?: FunctionResponse,
+ *     executableCode?: {
+ *       language: string,
+ *       code: string
+ *     },
+ *     codeExecutionResult?: {
+ *       outcome: string,
+ *       output: string
+ *     }
  *   }>
  * }} Content
  *
  * Gemini消息的基本格式
+ */
+
+/**
+ * @typedef {{
+ *   searchEntryPoint: {
+ *     renderedContent: string,
+ *   },
+ *   groundingChunks: Array<{
+ *     web: {
+ *       uri: string,
+ *       title: string
+ *     }
+ *   }>,
+ *   webSearchQueries: Array<string>
+ * }} GroundingMetadata
+ * 搜索结果的元数据
  */
 
 /**
@@ -80,33 +106,36 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
    *     temperature: number?,
    *     topP: number?,
    *     tokK: number?,
-   *     replyPureTextCallback: Function
+   *     replyPureTextCallback: Function,
+   *     toolMode: 'AUTO' | 'ANY' | 'NONE'
+   *     search: boolean,
+   *     codeExecution: boolean
    * }} opt
    * @returns {Promise<{conversationId: string?, parentMessageId: string, text: string, id: string}>}
    */
   async sendMessage (text, opt = {}) {
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
-    if (systemMessage) {
-      history = history.reverse()
-      history.push({
-        role: 'model',
-        parts: [
-          {
-            text: 'ok'
-          }
-        ]
-      })
-      history.push({
-        role: 'user',
-        parts: [
-          {
-            text: systemMessage
-          }
-        ]
-      })
-      history = history.reverse()
-    }
+    // if (systemMessage) {
+    //   history = history.reverse()
+    //   history.push({
+    //     role: 'model',
+    //     parts: [
+    //       {
+    //         text: 'ok'
+    //       }
+    //     ]
+    //   })
+    //   history.push({
+    //     role: 'user',
+    //     parts: [
+    //       {
+    //         text: systemMessage
+    //       }
+    //     ]
+    //   })
+    //   history = history.reverse()
+    // }
     const idThis = crypto.randomUUID()
     const idModel = crypto.randomUUID()
     const thisMessage = opt.functionResponse
@@ -120,7 +149,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         }
       : {
           role: 'user',
-          parts: [{ text }],
+          parts: text ? [{ text }] : [],
           id: idThis,
           parentMessageId: opt.parentMessageId || undefined
         }
@@ -143,18 +172,22 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       safetySettings: [
         {
           category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE
+          threshold: HarmBlockThreshold.OFF
         },
         {
           category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.BLOCK_NONE
+          threshold: HarmBlockThreshold.OFF
         },
         {
           category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.BLOCK_NONE
+          threshold: HarmBlockThreshold.OFF
         },
         {
           category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.OFF
+        },
+        {
+          category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
           threshold: HarmBlockThreshold.BLOCK_NONE
         }
       ],
@@ -163,21 +196,42 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         temperature: opt.temperature || 0.9,
         topP: opt.topP || 0.95,
         topK: opt.tokK || 16
+      },
+      tools: []
+    }
+    if (systemMessage) {
+      body.system_instruction = {
+        parts: {
+          text: systemMessage
+        }
       }
     }
     if (this.tools?.length > 0) {
-      body.tools = [
-        {
-          function_declarations: this.tools.map(tool => tool.function())
-          // codeExecution: {}
-        }
-      ]
+      body.tools.push({
+        function_declarations: this.tools.map(tool => tool.function())
+        // codeExecution: {}
+      })
+
       // ANY要笑死人的效果
+      let mode = opt.toolMode || 'AUTO'
+      let lastFuncName = opt.functionResponse?.name
+      const mustSendNextTurn = [
+        'searchImage', 'searchMusic', 'searchVideo'
+      ]
+      if (lastFuncName && mustSendNextTurn.includes(lastFuncName)) {
+        mode = 'ANY'
+      }
       body.tool_config = {
         function_calling_config: {
-          mode: 'AUTO'
+          mode
         }
       }
+    }
+    if (opt.search) {
+      body.tools.push({ google_search: {} })
+    }
+    if (opt.codeExecution) {
+      body.tools.push({ code_execution: {} })
     }
     if (opt.image) {
       delete body.tools
@@ -187,6 +241,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       delete content.parentMessageId
       delete content.conversationId
     })
+    // logger.info(JSON.stringify(body))
     let result = await newFetch(url, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -202,19 +257,21 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
      */
     let responseContent
     /**
-     * @type {{candidates: Array<{content: Content}>}}
+     * @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata}>}}
      */
     let response = await result.json()
     if (this.debug) {
       console.log(JSON.stringify(response))
     }
     responseContent = response.candidates[0].content
+    let groundingMetadata = response.candidates[0].groundingMetadata
     if (responseContent.parts.find(i => i.functionCall)) {
       // functionCall
       const functionCall = responseContent.parts.find(i => i.functionCall).functionCall
       const text = responseContent.parts.find(i => i.text)?.text
       if (text) {
         // send reply first
+        logger.info('send message: ' + text)
         opt.replyPureTextCallback && await opt.replyPureTextCallback(text)
       }
       // Gemini有时候只回复一个空的functionCall,无语死了
@@ -265,6 +322,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         // 递归直到返回text
         // 先把这轮的消息存下来
         await this.upsertMessage(thisMessage)
+        responseContent = handleSearchResponse(responseContent).responseContent
         const respMessage = Object.assign(responseContent, {
           id: idModel,
           parentMessageId: idThis
@@ -290,11 +348,71 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       })
       await this.upsertMessage(respMessage)
     }
+    let { final } = handleSearchResponse(responseContent)
+    try {
+      if (groundingMetadata?.groundingChunks) {
+        final += '\n参考资料\n'
+        groundingMetadata.groundingChunks.forEach(chunk => {
+          // final += `[${chunk.web.title}](${chunk.web.uri})\n`
+          final += `[${chunk.web.title}]\n`
+        })
+        groundingMetadata.webSearchQueries.forEach(q => {
+          logger.info('search query: ' + q)
+        })
+      }
+    } catch (err) {
+      logger.warn(err)
+    }
+
     return {
-      text: responseContent.parts[0].text.trim(),
+      text: final,
       conversationId: '',
       parentMessageId: idThis,
       id: idModel
     }
+  }
+}
+
+/**
+ * 处理成单独的text
+ * @param {Content} responseContent
+ * @returns {{final: string, responseContent}}
+ */
+function handleSearchResponse (responseContent) {
+  let final = ''
+
+  // 遍历每个 part 并处理
+  responseContent.parts = responseContent.parts.map((part) => {
+    let newText = ''
+
+    if (part.text) {
+      newText += part.text
+      final += part.text // 累积到 final
+    }
+    if (part.executableCode) {
+      const codeBlock = '\n执行代码：\n' + '```' + part.executableCode.language + '\n' + part.executableCode.code.trim() + '\n```\n\n'
+      newText += codeBlock
+      final += codeBlock // 累积到 final
+    }
+    if (part.codeExecutionResult) {
+      const resultBlock = `\n执行结果(${part.codeExecutionResult.outcome})：\n` + '```\n' + part.codeExecutionResult.output + '\n```\n\n'
+      newText += resultBlock
+      final += resultBlock // 累积到 final
+    }
+
+    // 返回更新后的 part，但不设置空的 text
+    const updatedPart = { ...part }
+    if (newText) {
+      updatedPart.text = newText // 仅在 newText 非空时设置 text
+    } else {
+      delete updatedPart.text // 如果 newText 是空的，则删除 text 字段
+    }
+
+    return updatedPart
+  })
+
+  return {
+    final,
+    responseContent
   }
 }
