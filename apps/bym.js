@@ -66,7 +66,7 @@ export class bym extends plugin {
         `\n你的回复应该尽可能简练，像人类一样随意，不要附加任何奇怪的东西，如聊天记录的格式（比如${Config.assistantLabel}：），禁止重复聊天记录。`
 
       let rsp = await core.sendMessage(e.msg, {}, Config.bymMode, e, {
-        enableSmart: true,
+        enableSmart: Config.smartMode,
         system: {
           api: system,
           qwen: system,
