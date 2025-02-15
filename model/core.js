@@ -55,7 +55,7 @@ import { BingAIClient } from '../client/CopilotAIClient.js'
 import Keyv from 'keyv'
 import crypto from 'crypto'
 
-const roleMap = {
+export const roleMap = {
   owner: 'group owner',
   admin: 'group administrator'
 }
@@ -790,14 +790,14 @@ async function collectTools (e) {
   }
   let fullTools = [
     new EditCardTool(),
-    new QueryStarRailTool(),
+    // new QueryStarRailTool(),
     new WebsiteTool(),
     new JinyanTool(),
     new KickOutTool(),
     new WeatherTool(),
     new SendPictureTool(),
     new SendVideoTool(),
-    new ImageCaptionTool(),
+    // new ImageCaptionTool(),
     new SearchVideoTool(),
     new SendAvatarTool(),
     new SerpImageTool(),
@@ -805,45 +805,40 @@ async function collectTools (e) {
     new SendMusicTool(),
     new SerpIkechan8370Tool(),
     new SerpTool(),
-    new SendAudioMessageTool(),
-    new ProcessPictureTool(),
+    // new SendAudioMessageTool(),
+    // new ProcessPictureTool(),
     new APTool(),
     new HandleMessageMsgTool(),
     new QueryUserinfoTool(),
-    new EliMusicTool(),
-    new EliMovieTool(),
+    // new EliMusicTool(),
+    // new EliMovieTool(),
     new SendMessageToSpecificGroupOrUserTool(),
     new SendDiceTool(),
     new QueryGenshinTool(),
     new SetTitleTool()
   ]
   // todo 3.0再重构tool的插拔和管理
-  let tools = [
+  let /** @type{AbstractTool} **/ tools = [
     new SendAvatarTool(),
     new SendDiceTool(),
     new SendMessageToSpecificGroupOrUserTool(),
     // new EditCardTool(),
-    new QueryStarRailTool(),
+    // new QueryStarRailTool(),
     new QueryGenshinTool(),
+    new SendMusicTool(),
+    new SearchMusicTool(),
     new ProcessPictureTool(),
     new WebsiteTool(),
     // new JinyanTool(),
     // new KickOutTool(),
     new WeatherTool(),
     new SendPictureTool(),
-    new SendAudioMessageTool(),
+    // new SendAudioMessageTool(),
     new APTool(),
     // new HandleMessageMsgTool(),
     serpTool,
     new QueryUserinfoTool()
   ]
-  try {
-    await import('../../avocado-plugin/apps/avocado.js')
-    tools.push(...[new EliMusicTool(), new EliMovieTool()])
-  } catch (err) {
-    tools.push(...[new SendMusicTool(), new SearchMusicTool()])
-    // logger.debug(logger.green('【ChatGPT-Plugin】插件avocado-plugin未安装') + '，安装后可查看最近热映电影与体验可玩性更高的点歌工具。\n可前往 https://github.com/Qz-Sean/avocado-plugin 获取')
-  }
   let systemAddition = ''
   if (e.isGroup) {
     let botInfo = await e.bot?.pickMember?.(e.group_id, getUin(e), true) || await e.bot?.getGroupMemberInfo?.(e.group_id, getUin(e), true)
@@ -862,8 +857,8 @@ async function collectTools (e) {
   let promptAddition = ''
   let img = await getImg(e)
   if (img?.length > 0 && Config.extraUrl) {
-    tools.push(new ImageCaptionTool())
-    tools.push(new ProcessPictureTool())
+    // tools.push(new ImageCaptionTool())
+    // tools.push(new ProcessPictureTool())
     promptAddition += `\nthe url of the picture(s) above: ${img.join(', ')}`
   } else {
     tools.push(new SerpImageTool())
@@ -889,59 +884,6 @@ async function collectTools (e) {
     fullFuncMap,
     systemAddition,
     promptAddition
-  }
-}
-
-async function getAvailableBingToken (conversation, throttled = []) {
-  let allThrottled = false
-  if (!await redis.get('CHATGPT:BING_TOKENS')) {
-    return {
-      bingToken: null,
-      allThrottled
-    }
-    // throw new Error('未绑定Bing Cookie，请使用#chatgpt设置必应token命令绑定Bing Cookie')
-  }
-
-  let bingToken = ''
-  let bingTokens = JSON.parse(await redis.get('CHATGPT:BING_TOKENS'))
-  const normal = bingTokens.filter(element => element.State === '正常')
-  const restricted = bingTokens.filter(element => element.State === '受限')
-
-  // 判断受限的token是否已经可以解除
-  for (const restrictedToken of restricted) {
-    const now = new Date()
-    const tk = new Date(restrictedToken.DisactivationTime)
-    if (tk <= now) {
-      const index = bingTokens.findIndex(element => element.Token === restrictedToken.Token)
-      bingTokens[index].Usage = 0
-      bingTokens[index].State = '正常'
-    }
-  }
-  if (normal.length > 0) {
-    const minElement = normal.reduce((min, current) => {
-      return current.Usage < min.Usage ? current : min
-    })
-    bingToken = minElement.Token
-  } else if (restricted.length > 0 && restricted.some(x => throttled.includes(x.Token))) {
-    allThrottled = true
-    const minElement = restricted.reduce((min, current) => {
-      return current.Usage < min.Usage ? current : min
-    })
-    bingToken = minElement.Token
-  } else {
-    // throw new Error('全部Token均已失效，暂时无法使用')
-    return {
-      bingToken: null,
-      allThrottled
-    }
-  }
-  // 记录使用情况
-  const index = bingTokens.findIndex(element => element.Token === bingToken)
-  bingTokens[index].Usage += 1
-  await redis.set('CHATGPT:BING_TOKENS', JSON.stringify(bingTokens))
-  return {
-    bingToken,
-    allThrottled
   }
 }
 
