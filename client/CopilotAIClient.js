@@ -121,7 +121,9 @@ export class BingAIClient {
       this.ws.once('message', (data) => {
         clearTimeout(timeout) // 清除超时定时器
         const message = JSON.parse(data)
-        logger.info(data)
+        if (this.debug) {
+          logger.info(data)
+        }
         if (message.event === 'challenge') {
           logger.warn('遇到turnstile验证码，尝试使用2captcha解决')
           // 如果收到 challenge，处理挑战

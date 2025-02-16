@@ -62,8 +62,8 @@ export const roleMap = {
 
 const defaultPropmtPrefix = ', a large language model trained by OpenAI. You answer as concisely as possible for each response (e.g. don’t be verbose). It is very important that you answer as concisely as possible, so please remember this. If you are generating a list, do not have too many items. Keep the number of items short.'
 
-async function handleSystem (e, system) {
-  if (Config.enableGroupContext) {
+async function handleSystem (e, system, settings) {
+  if (settings.enableGroupContext) {
     try {
       let opt = {}
       opt.groupId = e.group_id
@@ -126,7 +126,8 @@ class Core {
       xh: Config.xhPrompt
     },
     settings: {
-      replyPureTextCallback: undefined
+      replyPureTextCallback: undefined,
+      enableGroupContext: Config.enableGroupContext
     }
   }) {
     if (!conversation) {
@@ -151,7 +152,9 @@ class Core {
         messages: [],
         createdAt: Date.now()
       }
-      logger.info(JSON.stringify(conversations))
+      if (Config.debug) {
+        logger.debug(JSON.stringify(conversations))
+      }
       const previousCachedMessages = SydneyAIClient.getMessagesForConversation(conversations.messages, conversation.parentMessageId)
         .map((message) => {
           return {
@@ -160,14 +163,14 @@ class Core {
           }
         })
       let system = opt.system.bing
-      if (Config.enableGroupContext && e.isGroup) {
+      if (opt.settings.enableGroupContext && e.isGroup) {
         let chats = await getChatHistoryGroup(e, Config.groupContextLength)
         const namePlaceholder = '[name]'
         const defaultBotName = 'Copilot'
         const groupContextTip = Config.groupContextTip
         let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
         system = system.replaceAll(namePlaceholder, botName || defaultBotName) +
-          ((Config.enableGroupContext && e.group_id) ? groupContextTip : '')
+          ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
         system += 'Attention, you are currently chatting in a qq group, then one who asks you now is' + `${e.sender.card || e.sender.nickname}(${e.sender.user_id}).`
         system += `the group name is ${e.group.name || e.group_name}, group id is ${e.group_id}.`
         system += `Your nickname is ${botName} in the group,`
@@ -434,7 +437,7 @@ class Core {
           option.completionParams = {}
         }
         promptAddition && (prompt += promptAddition)
-        option.systemMessage = await handleSystem(e, opts.systemMessage)
+        option.systemMessage = await handleSystem(e, opts.systemMessage, opt.settings)
         if (Config.enableChatSuno) {
           option.systemMessage += '如果我要求你生成音乐或写歌，你需要回复适合Suno生成音乐的信息。请使用Verse、Chorus、Bridge、Outro和End等关键字对歌词进行分段，如[Verse 1]。音乐信息需要使用markdown包裹的JSON格式回复给我，结构为```json{"option": "Suno", "tags": "style", "title": "title of the song", "lyrics": "lyrics"}```。'
         }
@@ -580,14 +583,14 @@ class Core {
         client.addTools(tools)
       }
       let system = opt.system.gemini
-      if (Config.enableGroupContext && e.isGroup) {
+      if (opt.settings.enableGroupContext && e.isGroup) {
         let chats = await getChatHistoryGroup(e, Config.groupContextLength)
         const namePlaceholder = '[name]'
         const defaultBotName = 'GeminiPro'
         const groupContextTip = Config.groupContextTip
         let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
         system = system.replaceAll(namePlaceholder, botName || defaultBotName) +
-          ((Config.enableGroupContext && e.group_id) ? groupContextTip : '')
+          ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
         system += 'Attention, you are currently chatting in a qq group, then one who asks you now is' + `${e.sender.card || e.sender.nickname}(${e.sender.user_id}).`
         system += `the group name is ${e.group.name || e.group_name}, group id is ${e.group_id}.`
         system += `Your nickname is ${botName} in the group,`
@@ -631,7 +634,7 @@ class Core {
         Current date: ${currentDate}`
       let maxModelTokens = getMaxModelTokens(completionParams.model)
       // let system = promptPrefix
-      let system = await handleSystem(e, promptPrefix, maxModelTokens)
+      let system = await handleSystem(e, promptPrefix, opt.settings)
       if (Config.enableChatSuno) {
         system += 'If I ask you to generate music or write songs, you need to reply with information suitable for Suno to generate music. Please use keywords such as Verse, Chorus, Bridge, Outro, and End to segment the lyrics, such as [Verse 1], The returned song information needs to be wrapped in JSON format and sent to me in Markdown format. The message structure is ` ` JSON {"option": "Suno", "tags": "style", "title": "title of The Song", "lyrics": "lyrics"} `.'
       }

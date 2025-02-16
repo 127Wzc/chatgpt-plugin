@@ -250,7 +250,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       delete content.conversationId
     })
     if (this.debug) {
-      logger.info(JSON.stringify(body))
+      logger.debug(JSON.stringify(body))
     }
     let result = await newFetch(url, {
       method: 'POST',
