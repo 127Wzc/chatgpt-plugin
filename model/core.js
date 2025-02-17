@@ -29,7 +29,7 @@ import { SendAvatarTool } from '../utils/tools/SendAvatarTool.js'
 import { SerpImageTool } from '../utils/tools/SearchImageTool.js'
 import { SearchMusicTool } from '../utils/tools/SearchMusicTool.js'
 import { SendMusicTool } from '../utils/tools/SendMusicTool.js'
-import { SendAudioMessageTool } from '../utils/tools/SendAudioMessageTool.js'
+// import { SendAudioMessageTool } from '../utils/tools/SendAudioMessageTool.js'
 import { SendMessageToSpecificGroupOrUserTool } from '../utils/tools/SendMessageToSpecificGroupOrUserTool.js'
 import { QueryGenshinTool } from '../utils/tools/QueryGenshinTool.js'
 import { WeatherTool } from '../utils/tools/WeatherTool.js'
@@ -42,11 +42,11 @@ import { SerpIkechan8370Tool } from '../utils/tools/SerpIkechan8370Tool.js'
 import { SerpTool } from '../utils/tools/SerpTool.js'
 import common from '../../../lib/common/common.js'
 import { SendDiceTool } from '../utils/tools/SendDiceTool.js'
-import { EliMovieTool } from '../utils/tools/EliMovieTool.js'
-import { EliMusicTool } from '../utils/tools/EliMusicTool.js'
+// import { EliMovieTool } from '../utils/tools/EliMovieTool.js'
+// import { EliMusicTool } from '../utils/tools/EliMusicTool.js'
 import { HandleMessageMsgTool } from '../utils/tools/HandleMessageMsgTool.js'
 import { ProcessPictureTool } from '../utils/tools/ProcessPictureTool.js'
-import { ImageCaptionTool } from '../utils/tools/ImageCaptionTool.js'
+// import { ImageCaptionTool } from '../utils/tools/ImageCaptionTool.js'
 import { ChatGPTAPI } from '../utils/openai/chatgpt-api.js'
 import { newFetch } from '../utils/proxy.js'
 import { ChatGLM4Client } from '../client/ChatGLM4Client.js'
@@ -54,6 +54,7 @@ import { QwenApi } from '../utils/alibaba/qwen-api.js'
 import { BingAIClient } from '../client/CopilotAIClient.js'
 import Keyv from 'keyv'
 import crypto from 'crypto'
+import {GithubAPITool} from '../utils/tools/GithubTool.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -127,7 +128,8 @@ class Core {
     },
     settings: {
       replyPureTextCallback: undefined,
-      enableGroupContext: Config.enableGroupContext
+      enableGroupContext: Config.enableGroupContext,
+      forceTool: false
     }
   }) {
     if (!conversation) {
@@ -530,56 +532,10 @@ class Core {
         option.image = base64Image.toString('base64')
       }
       if (opt.enableSmart) {
-        /**
-         * @type {AbstractTool[]}
-         */
-        let tools = [
-          new QueryStarRailTool(),
-          new WebsiteTool(),
-          new SendPictureTool(),
-          new SendVideoTool(),
-          new SearchVideoTool(),
-          new SendAvatarTool(),
-          new SerpImageTool(),
-          new SearchMusicTool(),
-          new SendMusicTool(),
-          new SendAudioMessageTool(),
-          new APTool(),
-          new SendMessageToSpecificGroupOrUserTool(),
-          new QueryGenshinTool()
-        ]
-        if (Config.amapKey) {
-          tools.push(new WeatherTool())
-        }
-        if (e.isGroup) {
-          tools.push(new QueryUserinfoTool())
-          if (e.group.is_admin || e.group.is_owner) {
-            tools.push(new EditCardTool())
-            tools.push(new JinyanTool())
-            tools.push(new KickOutTool())
-          }
-          if (e.group.is_owner) {
-            tools.push(new SetTitleTool())
-          }
-        }
-        switch (Config.serpSource) {
-          case 'ikechan8370': {
-            tools.push(new SerpIkechan8370Tool())
-            break
-          }
-          case 'azure': {
-            if (!Config.azSerpKey) {
-              logger.warn('未配置bing搜索密钥，转为使用ikechan8370搜索源')
-              tools.push(new SerpIkechan8370Tool())
-            } else {
-              tools.push(new SerpTool())
-            }
-            break
-          }
-          default: {
-            tools.push(new SerpIkechan8370Tool())
-          }
-        }
+        const {
+          funcMap
+        } = await collectTools(e)
+        let tools = Object.keys(funcMap).map(k => funcMap[k].tool)
         client.addTools(tools)
       }
       let system = opt.system.gemini
@@ -613,6 +569,7 @@ class Core {
           await e.reply(msg, true)
         }
       })
+      option.toolMode = (opt.settings.forceTool || Config.geminiForceToolKeywords?.find(k => prompt.includes(k))) ? 'ANY' : 'AUTO'
       return await client.sendMessage(prompt, option)
     } else if (use === 'chatglm4') {
       const client = new ChatGLM4Client({
@@ -818,15 +775,16 @@ async function collectTools (e) {
     new SendMessageToSpecificGroupOrUserTool(),
     new SendDiceTool(),
     new QueryGenshinTool(),
-    new SetTitleTool()
+    new SetTitleTool(),
+    new GithubAPITool()
   ]
   // todo 3.0再重构tool的插拔和管理
-  let /** @type{AbstractTool} **/ tools = [
+  let /** @type{AbstractTool[]} **/ tools = [
     new SendAvatarTool(),
     new SendDiceTool(),
     new SendMessageToSpecificGroupOrUserTool(),
     // new EditCardTool(),
-    // new QueryStarRailTool(),
+    new QueryStarRailTool(),
     new QueryGenshinTool(),
     new SendMusicTool(),
     new SearchMusicTool(),
@@ -840,7 +798,8 @@ async function collectTools (e) {
     new APTool(),
     // new HandleMessageMsgTool(),
     serpTool,
-    new QueryUserinfoTool()
+    new QueryUserinfoTool(),
+    new GithubAPITool()
   ]
   let systemAddition = ''
   if (e.isGroup) {
@@ -873,13 +832,15 @@ async function collectTools (e) {
   tools.forEach(tool => {
     funcMap[tool.name] = {
       exec: tool.func,
-      function: tool.function()
+      function: tool.function(),
+      tool
     }
   })
   fullTools.forEach(tool => {
     fullFuncMap[tool.name] = {
       exec: tool.func,
-      function: tool.function()
+      function: tool.function(),
+      tool
     }
   })
   return {

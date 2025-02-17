@@ -222,13 +222,15 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
       // ANY要笑死人的效果
       let mode = opt.toolMode || 'AUTO'
-      let lastFuncName = opt.functionResponse?.name
+      let lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
       const mustSendNextTurn = [
         'searchImage', 'searchMusic', 'searchVideo'
       ]
-      if (lastFuncName && mustSendNextTurn.includes(lastFuncName)) {
+      if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
         mode = 'ANY'
       }
+      // 防止死循环。
+      delete opt.toolMode
       body.tool_config = {
         function_calling_config: {
           mode
@@ -279,10 +281,10 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       // functionCall
       const functionCall = responseContent.parts.filter(i => i.functionCall).map(i => i.functionCall)
       const text = responseContent.parts.find(i => i.text)?.text
-      if (text) {
+      if (text && text.trim()) {
         // send reply first
-        logger.info('send message: ' + text)
-        opt.replyPureTextCallback && await opt.replyPureTextCallback(text)
+        logger.info('send message: ' + text.trim())
+        opt.replyPureTextCallback && await opt.replyPureTextCallback(text.trim())
       }
       let /** @type {FunctionResponse[]} **/ fcResults = []
       for (let fc of functionCall) {
@@ -312,7 +314,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
             let args = Object.assign(fc.args, {
               isAdmin,
               isOwner,
-              sender: this.e.sender,
+              sender: this.e.sender.user_id,
               mode: 'gemini'
             })
             functionResponse.response.content = await chosenTool.func(args, this.e)

@@ -75,12 +75,12 @@ export function supportGuoba () {
           bottomHelpMessage: '独立的后台管理面板（默认3321端口），与锅巴类似。工具箱会有额外占用，启动速度稍慢，酌情开启。修改后需重启生效！！！',
           component: 'Switch'
         },
-        // {
-        //   field: 'enableMd',
-        //   label: 'QQ开启markdown',
-        //   bottomHelpMessage: 'qq的第三方md，非QQBot。需要适配器实现segment.markdown和segment.button方可使用，否则不建议开启，会造成各种错误。默认关闭',
-        //   component: 'Switch'
-        // },
+        {
+          field: 'enableToolPrivateSend',
+          label: '允许智能模式私聊',
+          bottomHelpMessage: '是否允许智能模式下发起临时对话骚扰其他群友。默认开启，如果怕Bot乱骚扰其他人可以关闭。主人不受影响。',
+          component: 'Switch'
+        },
         {
           field: 'translateSource',
           label: '翻译来源',
@@ -556,6 +556,26 @@ export function supportGuoba () {
           label: 'Gemini反代',
           bottomHelpMessage: '对https://generativelanguage.googleapis.com的反代',
           component: 'Input'
+        },
+        {
+          field: 'geminiForceToolKeywords',
+          label: 'gemini强制工具关键词',
+          bottomHelpMessage: 'gemini强制工具关键词，包含这里关键词的问题一定会调用工具。',
+          component: 'GTags',
+          componentProps: {
+            placeholder: '请输入强制工具关键词',
+            allowAdd: true,
+            allowDel: true,
+            showPrompt: true,
+            promptProps: {
+              content: '添加新的强制工具关键词',
+              okText: '添加',
+              rules: [
+                { required: true, message: '强制工具关键词不能为空' }
+              ]
+            },
+            valueParser: (value) => value.split(',') || []
+          }
         },
         {
           label: '以下为一些杂项配置。',
