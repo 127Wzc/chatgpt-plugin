@@ -1118,6 +1118,12 @@ export function supportGuoba () {
           label: '额外工具url',
           bottomHelpMessage: '（测试期间提供一个公益接口，一段时间后撤掉）参考搭建：https://github.com/ikechan8370/chatgpt-plugin-extras',
           component: 'Input'
+        },
+        {
+          field: 'githubAPIKey',
+          label: 'github Access Token',
+          bottomHelpMessage: '去https://github.com/settings/personal-access-tokens生成。用于提高AI调用github工具的Rate Limit',
+          component: 'Input'
         }
       ],
       // 获取配置数据方法（用于前端填充显示数据）
