@@ -148,6 +148,17 @@ export function supportGuoba() {
           }
         },
         {
+          field: 'chatgptBlockCount',
+          label: '对话历史记录条数',
+          helpMessage: '单位：条',
+          bottomHelpMessage: '限制历史记录最大条数，必须是偶数，用户+AI回复 为2条；设置为0则由 token 控制；目前仅支持 API、Gemini',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+            step: 2
+          }
+        },
+        {
           field: 'forwardReasoning',
           label: '是否转发思考过程',
           bottomHelpMessage: 'OpenAI的o系列、deepseek的r系列等思考模型的思考过程是否以转发形式发出。仅适配reasoning_content。默认开启。',
@@ -262,13 +273,13 @@ export function supportGuoba() {
         {
           field: 'apiMaxToken',
           label: '回复内容最大Token数',
-          bottomHelpMessage: '模型单次回复的Token上限，默认4096（要预留至少 10000 个输入Token，推荐“回复内容最大Token数”+10000≤“模型总上下文Token数”）',
+          bottomHelpMessage: '模型单次回复的Token上限，默认4096（要预留至少 10000 个输入Token，否则回复报错，推荐“回复内容最大Token数”+10000≤“模型总上下文Token数”）。补充说明：这个值越大，可用于历史/群聊上下文的空间就越小；当输入Token + 回复内容最大Token数接近或超过“模型总上下文Token数”时，插件可能会压缩历史，严重时会触发上下文超限重试。',
           component: 'InputNumber'
         },
         {
           field: 'maxModelTokens',
           label: '模型总上下文Token数',
-          bottomHelpMessage: '模型支持的输入+回复总Token上限，默认16000（参考：gpt-4o-mini为128000）',
+          bottomHelpMessage: '模型支持的输入+回复总Token上限，默认32000（参考：gpt-4o-mini为128000）。补充说明：这个值如果配置得明显小于模型实际支持的上下文，插件会更早压缩历史或群聊记录；通常应按模型真实能力填写。',
           component: 'InputNumber'
         },
         {

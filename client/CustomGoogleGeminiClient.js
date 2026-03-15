@@ -169,7 +169,37 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       };
     }
     let history = await this.getHistory(opt.parentMessageId)
+
+    if (Config.chatgptBlockCount) {
+      // 限制历史记录最大轮数（按条数限制） maxHistory 必须是偶数
+      let maxHistory = Config.chatgptBlockCount;
+      if (maxHistory % 2 !== 0) maxHistory += 1; // 强制保证是偶数，防止 Gemini 角色交替报错
+
+      if (history.length > maxHistory) {
+        // 截取最新的 maxHistory 条记录，确保开头是 user，结尾是 model
+        history = history.slice(-maxHistory);
+      }
+    }
+
     let systemMessage = opt.system
+
+    // 存储前清除多媒体数据，并保留 mime_type 的辅助函数
+    const getMessageForSave = (msg) => {
+      let saveMsg = _.cloneDeep(msg);
+      if (saveMsg.parts) {
+        saveMsg.parts = saveMsg.parts.map(part => {
+          if (part.inline_data) {
+            // 取出 mimeType 并替换为文本占位符
+            const mime = part.inline_data.mime_type || '未知类型';
+            return { text: `[多媒体附件: ${mime}]` };
+          }
+          return part;
+        });
+      }
+      return saveMsg;
+    };
+
+
     // if (systemMessage) {
     //   history = history.reverse()
     //   history.push({
@@ -476,9 +506,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
               mode: 'gemini'
             })
             functionResponse.response.content = await chosenTool.func(args, this.e)
-            if (this.debug) {
-              logger.info(JSON.stringify(functionResponse.response.content))
-            }
+            logger.info(`[Chatgpt][Gemini] function ${fc.name} execution result: ${JSON.stringify(functionResponse.response.content)}`)
           } catch (err) {
             logger.error(err)
             functionResponse.response.content = {
@@ -506,7 +534,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
       // 递归直到返回text
       // 先把这轮的消息存下来
-      await this.upsertMessage(thisMessage)
+      await this.upsertMessage(getMessageForSave(thisMessage))
       responseContent = handleSearchResponse(responseContent).responseContent
       const respMessage = Object.assign(responseContent, {
         id: idModel,
@@ -518,7 +546,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       return await this.sendMessage('', responseOpt)
     }
     if (responseContent) {
-      await this.upsertMessage(thisMessage)
+      await this.upsertMessage(getMessageForSave(thisMessage))
       const respMessage = Object.assign(responseContent, {
         id: idModel,
         parentMessageId: idThis
