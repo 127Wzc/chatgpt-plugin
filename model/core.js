@@ -72,6 +72,7 @@ import { EmojiTool } from '../utils/tools/EmojiTool.js'
 import { MemoryTool } from '../utils/tools/MemoryTool.js'
 import { EmojiLikeTool } from '../utils/tools/EmojiLikeTool.js'
 import { ScheduleTaskTool } from '../utils/tools/ScheduleTaskTool.js'
+import { getImageBase64 } from '../utils/paimonFuction.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -344,10 +345,14 @@ class Core {
           }
         }
         // let img = await parseSourceImg(e)
-        if (e.img && e.img.length > 0) {
-          const response = await fetch(e.img[0])
-          const base64Image = Buffer.from(await response.arrayBuffer()).toString('base64')
-          opt.image = base64Image
+        if (e.img && e.img.length > 0 && Config.mediaRecognitionSource == "Orignal") {
+          let imageUrl = e.img ? e.img[0] : undefined;
+          if (imageUrl) {
+            const base64String = await getImageBase64(imageUrl);
+            if (base64String) {
+              opt.image = base64String;
+            }
+          }
         }
         try {
           let rsp = await client.sendMessage(prompt, option)
@@ -626,13 +631,14 @@ class Core {
         codeExecution: Config.geminiEnableCodeExecution // Gemini 原生代码执行，开启后无法使用智能模式，默认关闭
       }
 
-      if (!(Config.mediaRecognitionSource == "Gemini")) {
+      if (Config.mediaRecognitionSource == "Orignal") {
         // const image = await parseSourceImg(e)
-        let imageUrl = e.img ? e.img[0] : undefined
+        let imageUrl = e.img ? e.img[0] : undefined;
         if (imageUrl) {
-          const response = await fetch(imageUrl)
-          const base64Image = Buffer.from(await response.arrayBuffer())
-          option.image = base64Image.toString('base64')
+          const base64String = await getImageBase64(imageUrl);
+          if (base64String) {
+            option.image = base64String;
+          }
         }
       }
 
@@ -764,6 +770,7 @@ class Core {
         option = Object.assign(option, conversation)
       }
 
+      /** 定义OpenAI格式请求 */
       const sendOpenAIWithContextFallback = async (messageContent, sendOption) => {
         const retryLengths = opt.settings.enableGroupContext
           ? getRetryGroupContextLengths(Config.groupContextLength)
@@ -771,6 +778,8 @@ class Core {
 
         for (let i = 0; i <= retryLengths.length; i++) {
           try {
+            // logger.mark(`messageContent:\n` + JSON.stringify(messageContent, null, 2))
+            // logger.mark(`sendOption:\n` + JSON.stringify(sendOption, null, 2))
             return await this.chatGPTApi.sendMessage(messageContent, sendOption)
           } catch (err) {
             const isContextExceeded = err.message?.indexOf('context_length_exceeded') > 0
@@ -786,16 +795,15 @@ class Core {
 
       let imageDataUrl = null;
       let imageUrl = e.img ? e.img[0] : undefined;
-      if (imageUrl) {
+      if (imageUrl && Config.mediaRecognitionSource == "Orignal") {
         try {
-          const response = await fetch(imageUrl);
-          const buffer = await response.arrayBuffer();
-          const base64Image = Buffer.from(buffer).toString('base64');
-          // const mimeType = response.headers.get('content-type') || 'image/jpeg';
-          // mimeType == "gif" 会报错，强制使用这个
-          const mimeType = 'image/jpeg';
-          // OpenAI API 要求格式: data:image/jpeg;base64,{base64_string}
-          imageDataUrl = `data:${mimeType};base64,${base64Image}`;
+          const base64String = await getImageBase64(imageUrl);
+          if (base64String) {
+            // mimeType == "gif" 会报错，强制使用这个
+            const mimeType = 'image/jpeg';
+            // OpenAI API 要求格式: data:image/jpeg;base64,{base64_string}
+            imageDataUrl = `data:${mimeType};base64,${base64String}`;
+          }
         } catch (err) {
           logger.error('OpenAI 获取图片失败', err);
         }
@@ -1184,7 +1192,13 @@ async function collectTools(e) {
   if (e.img?.length > 0) {
     // tools.push(new ImageCaptionTool())
     // tools.push(new ProcessPictureTool())
-    promptAddition += `\nthe url of the picture(s) above: ${e.img.join(', ')}`
+
+    // 检查 e.img 的大小，如果太大可能是 base64 那么就不附加上了
+    const isImgUrlValid = Array.isArray(e?.img) && !e.img.some(item => typeof item === 'string' && item.length > 1000);
+    if (isImgUrlValid) {
+      promptAddition += `\nthe url of the picture(s) above: ${e.img.join(', ')}`;
+    }
+
   } else {
     // tools.push(new SerpImageTool()) // 该工具使用的 url 不再提供服务
     tools.push(new SerpImageTool_by_baidu())

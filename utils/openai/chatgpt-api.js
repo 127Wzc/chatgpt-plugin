@@ -94,13 +94,14 @@ var ChatGPTAPI = /** @class */ (function () {
      * @param completionParams - Param overrides to send to the [OpenAI chat completion API](https://platform.openai.com/docs/api-reference/chat/create). Options like `temperature` and `presence_penalty` can be tweaked to change the personality of the assistant.
      * @param maxModelTokens - Optional override for the maximum number of tokens allowed by the model's context. Defaults to 4096.
      * @param maxResponseTokens - Optional override for the minimum number of tokens allowed for the model's response. Defaults to 1000.
+     * @param chatgptBlockCount
      * @param messageStore - Optional [Keyv](https://github.com/jaredwray/keyv) store to persist chat messages to. If not provided, messages will be lost when the process exits.
      * @param getMessageById - Optional function to retrieve a message by its ID. If not provided, the default implementation will be used (using an in-memory `messageStore`).
      * @param upsertMessage - Optional function to insert or update a message. If not provided, the default implementation will be used (using an in-memory `messageStore`).
      * @param fetch - Optional override for the `fetch` implementation to use. Defaults to the global `fetch` function.
      */
     function ChatGPTAPI(opts) {
-        var apiKey = opts.apiKey, apiOrg = opts.apiOrg, _a = opts.apiBaseUrl, apiBaseUrl = _a === void 0 ? 'https://api.openai.com/v1' : _a, _b = opts.debug, debug = _b === void 0 ? false : _b, messageStore = opts.messageStore, completionParams = opts.completionParams, systemMessage = opts.systemMessage, _c = opts.maxModelTokens, maxModelTokens = _c === void 0 ? 16000 : _c, _d = opts.maxResponseTokens, maxResponseTokens = _d === void 0 ? 8192 : _d, getMessageById = opts.getMessageById, upsertMessage = opts.upsertMessage, _e = opts.fetch, fetch = _e === void 0 ? globalFetch : _e;
+        var apiKey = opts.apiKey, apiOrg = opts.apiOrg, _a = opts.apiBaseUrl, apiBaseUrl = _a === void 0 ? 'https://api.openai.com/v1' : _a, _b = opts.debug, debug = _b === void 0 ? false : _b, messageStore = opts.messageStore, completionParams = opts.completionParams, systemMessage = opts.systemMessage, _c = opts.maxModelTokens, maxModelTokens = _c === void 0 ? 16000 : _c, _d = opts.maxResponseTokens, maxResponseTokens = _d === void 0 ? 8192 : _d, _e = opts.chatgptBlockCount, chatgptBlockCount = _e === void 0 ? 0 : _e, getMessageById = opts.getMessageById, upsertMessage = opts.upsertMessage, _f = opts.fetch, fetch = _f === void 0 ? globalFetch : _f;
         this._apiKey = apiKey;
         this._apiOrg = apiOrg;
         this._apiBaseUrl = apiBaseUrl;
@@ -114,6 +115,7 @@ var ChatGPTAPI = /** @class */ (function () {
         }
         this._maxModelTokens = maxModelTokens;
         this._maxResponseTokens = maxResponseTokens;
+        this._chatgptBlockCount = chatgptBlockCount;
         this._getMessageById = getMessageById !== null && getMessageById !== void 0 ? getMessageById : this._defaultGetMessageById;
         this._upsertMessage = upsertMessage !== null && upsertMessage !== void 0 ? upsertMessage : this._defaultUpsertMessage;
         if (messageStore) {
@@ -223,6 +225,25 @@ var ChatGPTAPI = /** @class */ (function () {
             });
         });
     };
+    ChatGPTAPI.prototype._stripImages = function (content) {
+        if (!content || typeof content === 'string')
+            return content;
+        if (Array.isArray(content)) {
+            return content.map(function (part) {
+                if (part.type === 'image_url') {
+                    return { type: 'text', text: '[图片]' };
+                }
+                if (part.type === 'input_audio') {
+                    return { type: 'text', text: '[音频]' };
+                }
+                if (part.type === 'input_video') {
+                    return { type: 'text', text: '[视频]' };
+                }
+                return part;
+            });
+        }
+        return content;
+    };
     /**
      * Sends a message to the OpenAI chat completions endpoint, waits for the response
      * to resolve, and returns the response.
@@ -286,10 +307,10 @@ var ChatGPTAPI = /** @class */ (function () {
                         _d = _e.sent(), messages = _d.messages, maxTokens = _d.maxTokens, numTokens = _d.numTokens, trimInfo = _d.trimInfo;
                         console.log("[ChatGPT][API] \u8F93\u5165Token(".concat(numTokens, ") | \u56DE\u590D\u4E0A\u9650(").concat(maxTokens, ") | \u603B\u4E0A\u4E0B\u6587(").concat(this._maxModelTokens, ")"));
                         if (numTokens + maxTokens > this._maxModelTokens) {
-                            console.warn("[ChatGPT][API] \u5F53\u524D token \u914D\u7F6E\u8FB9\u754C\u8FC7\u7D27\uFF1A\u8F93\u5165Token(".concat(numTokens, ") + \u56DE\u590D\u4E0A\u9650(").concat(maxTokens, ") > \u603B\u4E0A\u4E0B\u6587(").concat(this._maxModelTokens, ")\u3002\u8BF7\u68C0\u67E5\u9505\u5DF4\u4E2D\u7684\u300C\u56DE\u590D\u5185\u5BB9\u6700\u5927Token\u6570(apiMaxToken)\u300D\u4E0E\u300C\u6A21\u578B\u603B\u4E0A\u4E0B\u6587Token\u6570(maxModelTokens)\u300D\u914D\u7F6E\u662F\u5426\u8FC7\u7D27\uFF1B\u63D2\u4EF6\u5C06\u4F9D\u8D56\u5386\u53F2\u88C1\u526A\uFF0C\u82E5\u4ECD\u8D85\u9650\uFF0C\u53EF\u80FD\u89E6\u53D1\u7FA4\u804A\u4E0A\u4E0B\u6587\u538B\u7F29\u6216\u91CD\u8BD5\u3002"));
+                            console.warn("[ChatGPT][API] \u5F53\u524D token \u914D\u7F6E\u8FB9\u754C\u8FC7\u7D27\uFF1A\u8F93\u5165Token(".concat(numTokens, ") + \u56DE\u590D\u4E0A\u9650(").concat(maxTokens, ") > \u603B\u4E0A\u4E0B\u6587(").concat(this._maxModelTokens, ")\u3002\u8BF7\u68C0\u67E5\u9505\u5DF4\u4E2D\u7684\u201C\u56DE\u590D\u5185\u5BB9\u6700\u5927Token\u6570(apiMaxToken)\u201D\u4E0E\u201C\u6A21\u578B\u603B\u4E0A\u4E0B\u6587Token\u6570(maxModelTokens)\u201D\u914D\u7F6E\u662F\u5426\u8FC7\u7D27\uFF1B\u63D2\u4EF6\u5C06\u4F9D\u8D56\u5386\u53F2\u88C1\u526A\uFF0C\u82E5\u4ECD\u8D85\u9650\uFF0C\u53EF\u80FD\u89E6\u53D1\u7FA4\u804A\u4E0A\u4E0B\u6587\u538B\u7F29\u6216\u91CD\u8BD5\u3002"));
                         }
                         if (trimInfo.trimmed) {
-                            console.log("[chatgpt] history trimmed: current=".concat(trimInfo.currentTurnMessages, ", keptHistory=").concat(trimInfo.keptHistoryMessages, ", attemptedHistory=").concat(trimInfo.attemptedHistoryMessages, ", droppedHistory=").concat(trimInfo.droppedHistoryMessages, ", keptToolChains=").concat(trimInfo.keptToolChainCount, ", budget=").concat(trimInfo.promptBudget, ", finalTokens=").concat(numTokens, ", reason=").concat(trimInfo.stopReason, "\u3002\u82E5\u8FD9\u7C7B\u65E5\u5FD7\u9891\u7E41\u51FA\u73B0\uFF0C\u8BF7\u68C0\u67E5\u9505\u5DF4\u4E2D\u7684\u300C\u56DE\u590D\u5185\u5BB9\u6700\u5927Token\u6570(apiMaxToken)\u300D\u4E0E\u300C\u6A21\u578B\u603B\u4E0A\u4E0B\u6587Token\u6570(maxModelTokens)\u300D\u914D\u7F6E\u662F\u5426\u8FC7\u7D27\u3002"));
+                            console.log("[chatgpt] history trimmed: current=".concat(trimInfo.currentTurnMessages, ", keptHistory=").concat(trimInfo.keptHistoryMessages, ", attemptedHistory=").concat(trimInfo.attemptedHistoryMessages, ", droppedHistory=").concat(trimInfo.droppedHistoryMessages, ", keptToolChains=").concat(trimInfo.keptToolChainCount, ", budget=").concat(trimInfo.promptBudget, ", finalTokens=").concat(numTokens, ", reason=").concat(trimInfo.stopReason, "\u3002\u82E5\u8FD9\u7C7B\u65E5\u5FD7\u9891\u7E41\u51FA\u73B0\uFF0C\u8BF7\u68C0\u67E5\u9505\u5DF4\u4E2D\u7684\u201C\u56DE\u590D\u5185\u5BB9\u6700\u5927Token\u6570(apiMaxToken)\u201D\u4E0E\u201C\u6A21\u578B\u603B\u4E0A\u4E0B\u6587Token\u6570(maxModelTokens)\u201D\u914D\u7F6E\u662F\u5426\u8FC7\u7D27\u3002"));
                         }
                         result = {
                             role: 'assistant',
@@ -496,7 +517,7 @@ var ChatGPTAPI = /** @class */ (function () {
                                 }
                             });
                         }); }).then(function (message) { return __awaiter(_this, void 0, void 0, function () {
-                            var promptTokens, completionTokens, err_2;
+                            var promptTokens, completionTokens, err_2, cleanedCurrentMessages, cleanedResponse;
                             var _this = this;
                             return __generator(this, function (_a) {
                                 switch (_a.label) {
@@ -519,9 +540,13 @@ var ChatGPTAPI = /** @class */ (function () {
                                     case 3:
                                         err_2 = _a.sent();
                                         return [3 /*break*/, 4];
-                                    case 4: return [2 /*return*/, Promise.all(__spreadArray(__spreadArray([], currentMessages.map(function (currentMessage) { return _this._upsertMessage(currentMessage); }), true), [
-                                            this._upsertMessage(message)
-                                        ], false)).then(function () { return message; })];
+                                    case 4:
+                                        cleanedCurrentMessages = currentMessages.map(function (m) { return (__assign(__assign({}, m), { originalContent: _this._stripImages(m.originalContent) })); });
+                                        cleanedResponse = __assign(__assign({}, message), { originalContent: this._stripImages(message.originalContent) });
+                                        // 返回给当前调用的带图片的 message ，只是存入数据库的是无图片的 cleaned 版
+                                        return [2 /*return*/, Promise.all(__spreadArray(__spreadArray([], cleanedCurrentMessages.map(function (currentMessage) { return _this._upsertMessage(currentMessage); }), true), [
+                                                this._upsertMessage(cleanedResponse)
+                                            ], false)).then(function () { return message; })];
                                 }
                             });
                         }); });
@@ -624,6 +649,10 @@ var ChatGPTAPI = /** @class */ (function () {
                             stopReason = 'budget';
                             return [3 /*break*/, 14];
                         }
+                        if (this._chatgptBlockCount > 0 && nextHistoryMessagesCount >= this._chatgptBlockCount) {
+                            stopReason = 'block_count_reached';
+                            return [3 /*break*/, 14];
+                        }
                         if (!parentMessageId) {
                             stopReason = 'no_parent';
                             return [3 /*break*/, 14];
@@ -696,9 +725,9 @@ var ChatGPTAPI = /** @class */ (function () {
                                 maxTokens: maxTokens,
                                 numTokens: numTokens,
                                 trimInfo: {
-                                currentTurnMessages: currentTurnMessages,
-                                promptBudget: promptBudget,
-                                attemptedHistoryMessages: attemptedHistoryMessages,
+                                    currentTurnMessages: currentTurnMessages,
+                                    promptBudget: promptBudget,
+                                    attemptedHistoryMessages: attemptedHistoryMessages,
                                     keptHistoryMessages: keptHistoryMessagesCount,
                                     droppedHistoryMessages: droppedHistoryMessages,
                                     keptToolChainCount: keptToolChainCount,
