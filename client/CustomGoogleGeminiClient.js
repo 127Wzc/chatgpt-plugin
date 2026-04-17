@@ -303,12 +303,14 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         // codeExecution: {}
       })
 
-      // ANY要笑死人的效果
       let mode = opt.toolMode || 'AUTO'
-      let lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
-      const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
-      if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
-        mode = 'ANY'
+      // toolMode='NONE' 是上限机制强制设置的，不允许被覆盖
+      if (mode !== 'NONE') {
+        let lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
+        const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
+        if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
+          mode = 'ANY'
+        }
       }
       // 防止死循环。
       delete opt.toolMode
@@ -370,6 +372,19 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       });
     }
 
+    try {
+      // 返回 token 统计信息
+      const usage = response.usageMetadata;
+      if (usage) {
+        const numTokens = usage.promptTokenCount || 0;
+        const outTokens = usage.candidatesTokenCount || 0;
+        const maxTokens = opt.maxOutputTokens || 0;
+        logger.info(`[Chatgpt][Gemini] 输入Token(${numTokens})${maxTokens ? ` | 回复上限(${maxTokens})` : ''} | 输出Token(${outTokens}) | 累计Token(${usage.totalTokenCount})`);
+      }
+    } catch (err) {
+      logger.debug(`[Chatgpt][Gemini] 打印 Token 日志失败: ${err.message}`);
+    }
+
     // 检查 candidates 是否存在
     if (!response.candidates || response.candidates.length === 0) {
       return await executeRetry(`API 返回的 candidates 为空`, () => {
@@ -395,28 +410,11 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     // todo 空回复也可以重试
     if (responseContent?.parts?.filter(i => i.functionCall).length > 0) {
       const toolNames = responseContent.parts.filter(i => i.functionCall).map(i => i.functionCall.name);
-
-      const repeatedTool = toolNames.find(name => opt.toolChain.calledTools.includes(name));
-
-      if (opt.toolChain.depth >= 2 || repeatedTool) {
-        const responseText = responseContent.parts.find(i => i.text)?.text;
-        if (!responseText) {
-          return await executeRetry(`responseContent.parts 中未找到文本内容`, () => {
-            return {
-              text: '操作已完成',
-              conversationId: '',
-              parentMessageId: idThis,
-              id: idModel
-            };
-          });
-        }
-        return {
-          text: responseText,
-          conversationId: '',
-          parentMessageId: idThis,
-          id: idModel
-        };
-      }
+      /** 工具调用最大轮次数 */
+      const maxToolRounds = 3
+      // 最多允许连续 maxToolRounds 轮工具调用，不限制单次并行调用的工具数量
+      // 注意：不再按工具名判断"重复调用"，同一工具不同 action 是合法场景（如 scheduleGroupTask 的 list→remove）
+      const toolLimitReached = opt.toolChain.depth >= maxToolRounds;
       // functionCall - 提取所有的 functionCall 部分（保留原始顺序）
       const functionCallParts = responseContent.parts.filter(i => i.functionCall)
       const functionCall = functionCallParts.map(i => i.functionCall)
@@ -464,7 +462,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       }
       let /** @type {FunctionResponse[]} **/ fcResults = []
       for (let fc of functionCall) {
-        logger.info(JSON.stringify(fc))
+        logger.info(`[Chatgpt][Gemini] execution function: ${JSON.stringify(fc)}`)
         const funcName = fc.name
         let chosenTool = this.tools.find(t => t.name === funcName)
         /**
@@ -478,7 +476,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
           }
         }
 
-        // 关键：保留 thoughtSignature
+        // 关键：保留 thoughtSignature (适用于 Gemini Thinking 模型)
         // 根据文档：
         // - 单次调用：只有一个签名，添加到唯一的 response
         // - 并行调用：只有第一个有签名，仅添加到第一个 response
@@ -521,6 +519,11 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         depth: opt.toolChain.depth + 1,
         calledTools: [...opt.toolChain.calledTools, ...toolNames]
       };
+
+      // 达到工具调用上限时，强制下一轮不使用工具，让模型必须生成文本回复
+      if (toolLimitReached) {
+        responseOpt.toolMode = 'NONE'
+      }
 
       // 添加明确的系统指示
       const toolResultPrefix = "以下是工具调用的结果，请直接回答用户，不要再次调用工具：\n\n";

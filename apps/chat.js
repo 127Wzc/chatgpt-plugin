@@ -931,7 +931,8 @@ export class chatgpt extends plugin {
         clientId: previousConversation.clientId,
         invocationId: previousConversation.invocationId,
         conversationSignature: previousConversation.conversationSignature,
-        bingToken: previousConversation.bingToken
+        bingToken: previousConversation.bingToken,
+        replyTimestamps: previousConversation.replyTimestamps || []
       }
     }
     let handler = this.e.runtime?.handler || {
@@ -1018,6 +1019,12 @@ export class chatgpt extends plugin {
         if (!chatMessage.error) {
           // 没错误的时候再更新，不然易出错就对话没了
           previousConversation.num = previousConversation.num + 1
+          // 添加当前时间戳
+          if (!previousConversation.replyTimestamps) previousConversation.replyTimestamps = []
+          previousConversation.replyTimestamps.push(Date.now())
+          if (previousConversation.replyTimestamps.length > 10)
+            previousConversation.replyTimestamps = previousConversation.replyTimestamps.slice(-10)
+          // 写入 redis
           await redis.set(key, JSON.stringify(previousConversation), Config.conversationPreserveTime > 0 ? { EX: Config.conversationPreserveTime } : {})
         }
       }
@@ -1224,17 +1231,18 @@ export class chatgpt extends plugin {
               else if (random_nai < 0.6) {
                 strPaint = '方图'
               }
-              e.msg = `#绘画${strPaint} ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
-              if (e.img)
-                e.msg += ', Reference_Strength = 0.30';
+              const new_e = Object.assign(Object.create(Object.getPrototypeOf(e)), e);
+              new_e.msg = `#绘画${strPaint} ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
+              if (new_e.img)
+                new_e.msg += ', Reference_Strength = 0.30';
               // 随机 smea
               const random_1 = Math.random()
-              e.msg += random_1 < 0.50 ? '' : (random_1 < 0.75 ? ', smea, dynoff' : ', smea');
-              console.log('[ChatGPT]开始调用nai插件绘画：\nmsg: ', e.msg)
+              new_e.msg += random_1 < 0.50 ? '' : (random_1 < 0.75 ? ', smea, dynoff' : ', smea');
+              console.log('[ChatGPT]开始调用nai插件绘画：\nmsg: ', new_e.msg)
               if (Config.doNotCheckPaintPluginSuccess) {
-                nai.txt2img(e);
+                nai.txt2img(new_e);
               } else {
-                let isTrue = await nai.txt2img(e);
+                let isTrue = await nai.txt2img(new_e);
                 if (isTrue) {
                   if (!response)
                     return true
@@ -1242,7 +1250,7 @@ export class chatgpt extends plugin {
                 else {
                   console.log('[ChatGPT]调用nai插件错误：请检查nai插件在当前群聊能否使用');
                   response = `${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`;
-                  e.reply(`${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`, true)
+                  new_e.reply(`${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`, true)
                   return false;
                 }
               }
@@ -1269,17 +1277,19 @@ export class chatgpt extends plugin {
               else if (random_nai < 0.6) {
                 strPaint = '--width 1024 --height 1024'
               }
-              e.msg = `#draw ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres' + strPaint;
-              if (e.img)
-                e.msg += ', --reference_strength 0.3';
-              // 随机 smea
+              const new_e = Object.assign(Object.create(Object.getPrototypeOf(e)), e);
+              new_e.msg = `#draw ${charactersName}, ${Config.nai3PluginToPaintPrefix}, ${jsonTags}, best quality, amazing quality, very aesthetic, absurdres${strPaint}`
+              if (new_e.img) {
+                new_e.msg += ', --reference_strength 0.3';
+              }
+              // // 随机 smea
               // const random_1 = Math.random()
-              // e.msg += random_1 < 0.50 ? '' : (random_1 < 0.75 ? ', --sm true --sm_dyn false' : ', --sm true --sm_dyn true');
-              console.log('[ChatGPT]开始调用nai插件绘画：\nmsg: ', e.msg)
+              // new_e.msg += random_1 < 0.50 ? '' : (random_1 < 0.75 ? ', --sm true --sm_dyn false' : ', --sm true --sm_dyn true');
+              console.log('[ChatGPT]开始调用nai插件绘画：\nmsg: ', new_e.msg)
               if (Config.doNotCheckPaintPluginSuccess) {
-                nai.text(e);
+                nai.text(new_e);
               } else {
-                let isTrue = await nai.text(e);
+                let isTrue = await nai.text(new_e);
                 if (isTrue) {
                   if (!response)
                     return true
@@ -1287,7 +1297,7 @@ export class chatgpt extends plugin {
                 else {
                   console.log('[ChatGPT]调用nai插件错误：请检查nai插件在当前群聊能否使用');
                   response = `${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`;
-                  e.reply(`${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`, true)
+                  new_e.reply(`${Config.tts_First_person}在这个群还不能使用#绘画 功能啦`, true)
                   return false;
                 }
               }
@@ -1311,12 +1321,13 @@ export class chatgpt extends plugin {
               }
             }
             try {
-              e.msg = `#绘图 ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
-              console.log('[ChatGPT]开始调用ap插件绘画：\nmsg: ', e.msg)
+              const new_e = Object.assign(Object.create(Object.getPrototypeOf(e)), e);
+              new_e.msg = `#绘图 ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
+              console.log('[ChatGPT]开始调用ap插件绘画：\nmsg: ', new_e.msg);
               if (Config.doNotCheckPaintPluginSuccess) {
-                ap.aiPainting(e);
+                ap.aiPainting(new_e);
               } else {
-                let isTrue = await ap.aiPainting(e);
+                let isTrue = await ap.aiPainting(new_e);
                 if (isTrue) {
                   if (!response)
                     return true
@@ -1324,7 +1335,7 @@ export class chatgpt extends plugin {
                 else {
                   console.log('[ChatGPT]调用ap插件错误：请检查ap插件在当前群聊能否使用');
                   response = `${Config.tts_First_person}在这个群还不能使用#绘图 功能啦`;
-                  e.reply(`${Config.tts_First_person}在这个群还不能使用#绘图 功能啦`, true)
+                  new_e.reply(`${Config.tts_First_person}在这个群还不能使用#绘图 功能啦`, true)
                   return false;
                   // TODO ap.aiPainting(e) 处于CD之类的也返回true，所以不会进入到这个else分支，有空改一改ap插件（It is forever)
                 }
@@ -1343,12 +1354,13 @@ export class chatgpt extends plugin {
               console.log('[ChatGPT]调用SF插件错误-未安装SF插件')
             }
             try {
-              e.msg = `#sf绘图 ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
-              console.log('[ChatGPT]开始调用sf插件绘画：\nmsg: ', e.msg)
+              const new_e = Object.assign(Object.create(Object.getPrototypeOf(e)), e);
+              new_e.msg = `#sf绘图 ${charactersName}, ` + Config.sfPluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
+              console.log('[ChatGPT]开始调用sf插件绘画：\nmsg: ', new_e.msg)
               if (Config.doNotCheckPaintPluginSuccess) {
-                sf.sf_draw(e);
+                sf.sf_draw(new_e);
               } else {
-                let isTrue = await sf.sf_draw(e);
+                let isTrue = await sf.sf_draw(new_e);
                 if (isTrue) {
                   if (!response)
                     return true
@@ -1356,7 +1368,7 @@ export class chatgpt extends plugin {
                 else {
                   console.log('[ChatGPT]调用sf插件错误：请检查sf插件在当前群聊能否使用');
                   response = `${Config.tts_First_person}在这个群还不能使用#sf绘图 功能啦`;
-                  e.reply(`${Config.tts_First_person}在这个群还不能使用#sf绘图 功能啦`, true)
+                  new_e.reply(`${Config.tts_First_person}在这个群还不能使用#sf绘图 功能啦`, true)
                   return false;
                 }
               }
@@ -1374,12 +1386,13 @@ export class chatgpt extends plugin {
               console.log('[ChatGPT]调用SF插件错误-未安装SF插件')
             }
             try {
-              e.msg = `#mjp ${charactersName}, ` + Config.nai3PluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
-              console.log('[ChatGPT]开始调用sf插件绘画：\nmsg: ', e.msg)
+              const new_e = Object.assign(Object.create(Object.getPrototypeOf(e)), e);
+              new_e.msg = `#mjp ${charactersName}, ` + Config.sfPluginToPaintPrefix + ', ' + jsonTags + ', best quality, amazing quality, very aesthetic, absurdres'
+              console.log('[ChatGPT]开始调用sf插件绘画：\nmsg: ', new_e.msg)
               if (Config.doNotCheckPaintPluginSuccess) {
-                sfmj.mj_draw(e);
+                sfmj.mj_draw(new_e);
               } else {
-                let isTrue = await sfmj.mj_draw(e);
+                let isTrue = await sfmj.mj_draw(new_e);
                 if (isTrue) {
                   if (!response)
                     return true
@@ -1387,7 +1400,7 @@ export class chatgpt extends plugin {
                 else {
                   console.log('[ChatGPT]调用sf插件错误：请检查sf插件在当前群聊能否使用');
                   response = `${Config.tts_First_person}在这个群还不能使用#mjp 功能啦`;
-                  e.reply(`${Config.tts_First_person}在这个群还不能使用#mjp 功能啦`, true)
+                  new_e.reply(`${Config.tts_First_person}在这个群还不能使用#mjp 功能啦`, true)
                   return false;
                 }
               }
@@ -1449,10 +1462,10 @@ export class chatgpt extends plugin {
             })
           }
           if (Config.isConvertSentenceToArrayReply) {
-            // 多次回复
-            const str_arr = convertSentenceToArray(responseText.join(''));
-            for (let i = 0; i < str_arr.length; i++) {
-              await this.reply(str_arr[i].trim());
+            /** 包含at对象的多次回复 */
+            const logicalGroups = convertSentenceToArray(responseText);
+            for (let i = 0; i < logicalGroups.length; i++) {
+              await this.reply(logicalGroups[i]);
               await sleep_zz(Math.random() * 5000 + 2000);
             }
           }
@@ -1531,10 +1544,10 @@ export class chatgpt extends plugin {
           }
         }
         if (Config.isConvertSentenceToArrayReply) {
-          // 多次回复
-          const str_arr = convertSentenceToArray(responseText.join(''));
-          for (let i = 0; i < str_arr.length; i++) {
-            await this.reply(str_arr[i].trim());
+          /** 包含at对象的多次回复 */
+          const logicalGroups = convertSentenceToArray(responseText);
+          for (let i = 0; i < logicalGroups.length; i++) {
+            await this.reply(logicalGroups[i]);
             await sleep_zz(Math.random() * 5000 + 2000);
           }
         }

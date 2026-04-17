@@ -35,30 +35,30 @@ const defaultConfig = {
    * @type {'Precise' | 'Balanced' | 'Creative'}
    */
   toneStyle: 'Creative',
-  sydney: pureSydneyInstruction,
-  sydneyReverseProxy: 'https://666102.201666.xyz',
-  sydneyForceUseReverse: false,
-  sydneyWebsocketUseProxy: true,
-  sydneyBrainWash: true,
-  sydneyBrainWashStrength: 15,
-  sydneyBrainWashName: 'Sydney',
-  sydneyMood: false,
-  sydneyGPTs: 'Copilot',
-  sydneyImageRecognition: false,
-  sydneyMoodTip: 'Your response should be divided into two parts, namely, the text and your mood. The mood available to you can only include: blandness, happy, shy, frustrated, disgusted, and frightened.All content should be replied in this format {"text": "", "mood": ""}.All content except mood should be placed in text, It is important to ensure that the content you reply to can be parsed by json.',
-  chatExampleUser1: '',
-  chatExampleUser2: '',
-  chatExampleUser3: '',
-  chatExampleBot1: '',
-  chatExampleBot2: '',
-  chatExampleBot3: '',
+  // sydney: pureSydneyInstruction,
+  // sydneyReverseProxy: 'https://666102.201666.xyz',
+  // sydneyForceUseReverse: false,
+  // sydneyWebsocketUseProxy: true,
+  // sydneyBrainWash: true,
+  // sydneyBrainWashStrength: 15,
+  // sydneyBrainWashName: 'Sydney',
+  // sydneyMood: false,
+  // sydneyGPTs: 'Copilot',
+  // sydneyImageRecognition: false,
+  // sydneyMoodTip: 'Your response should be divided into two parts, namely, the text and your mood. The mood available to you can only include: blandness, happy, shy, frustrated, disgusted, and frightened.All content should be replied in this format {"text": "", "mood": ""}.All content except mood should be placed in text, It is important to ensure that the content you reply to can be parsed by json.',
+  // chatExampleUser1: '',
+  // chatExampleUser2: '',
+  // chatExampleUser3: '',
+  // chatExampleBot1: '',
+  // chatExampleBot2: '',
+  // chatExampleBot3: '',
   enableSuggestedResponses: false,
-  sydneyEnableSearch: false,
-  api: defaultChatGPTAPI,
-  apiBaseUrl: 'https://chat3.avocado.wiki/backend-api',
-  apiForceUseReverse: false,
-  plus: false,
-  useGPT4: false,
+  // sydneyEnableSearch: false,
+  // api: defaultChatGPTAPI,
+  // apiBaseUrl: 'https://chat3.avocado.wiki/backend-api',
+  // apiForceUseReverse: false,
+  // plus: false,
+  // useGPT4: false,
   xinghuoToken: '',
   xhmode: 'web',
   xhAppId: '',
@@ -80,7 +80,7 @@ const defaultConfig = {
   debug: true,
   defaultTimeoutMs: 120000,
   chromeTimeoutMS: 120000,
-  sydneyFirstMessageTimeout: 40000,
+  // sydneyFirstMessageTimeout: 40000,
   sunoApiTimeout: 60,
   ttsSpace: '',
   // https://114514.201666.xyz
@@ -90,15 +90,16 @@ const defaultConfig = {
   isReplacePromptForSenderMsg: false,
   paimon_globalLimitBreak: "",
   drawByJsonToPlugin: false,
-  drawToolS: false,
+  drawToolsArr: [],
   sf_markdownPic: false,
-  add_sf_image_edit: false,
+  // add_sf_image_edit: false,
   disable_sendMessage_tool: true,
   change_handleMsg_tool: true,
   nai3PluginToPaintPrefix: "artist:ciloranko, [artist:tianliang duohe fangdongye], [artist:sho_(sho_lwlw)], [artist:baku-p], [artist:tsubasa_tsubasa],",
+  sfPluginToPaintPrefix: "",
   geminiModelsByFetch: [],
   draw_PluginCharactersList: '',
-  doNotCheckPaintPluginSuccess: false,
+  doNotCheckPaintPluginSuccess: true,
   paimon_chuoyichuo_open: true,
   // paimon_chuoyichuo_ByMsgGroups: [],
   // paimon_chuoyichuo_Probability_ByMsgGroups: 5,
@@ -139,6 +140,9 @@ const defaultConfig = {
   // api_fish_audio_account_ID: "",
   // api_fish_token_quota: 49,
   // api_fish_control_defaultUseTTS: false,
+  siliconflow_Voice_ApiKey: "",
+  siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B",
+  siliconflow_Voice_ReferenceId: "speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj",
   fishApiKey: "",
   fish_reference_id: "efc1ce3726a64bbc947d53a1465204aa",
   tts_ffmpeg_path: "/usr/local/bin/ffmpeg",
@@ -161,16 +165,16 @@ const defaultConfig = {
   helloProbability: 50,
   chatglmBaseUrl: 'http://localhost:8080',
   allowOtherMode: true,
-  sydneyContext: '',
+  // sydneyContext: '',
   emojiBaseURL: 'https://www.gstatic.com/android/keyboard/emojikitchen',
   emojiBaseSwitch: true,
   enableGroupContext: false,
   groupContextTip: '你看看我们群里的聊天记录吧，回答问题的时候要主动参考我们的聊天记录进行回答或提问。但要看清楚哦，不要把我和其他人弄混啦，也不要把自己看晕啦。',
-  groupContextLength: 50,
+  groupContextLength: 20,
   enableRobotAt: false,
   maxNumUserMessagesInConversation: 20,
-  sydneyApologyIgnored: true,
-  enforceMaster: false,
+  // sydneyApologyIgnored: true,
+  // enforceMaster: false,
   bingAPDraw: false,
   bingSuno: 'bing',
   bingSunoApi: '',
@@ -287,13 +291,13 @@ const defaultConfig = {
   forwardReasoning: true,
   geminiEnableGoogleSearch: false,
   geminiEnableCodeExecution: false,
-  bingAiToken: '', // copilot.microsoft.com accessToken
-  bingAiClientId: '',
-  bingAiScope: '140e65af-45d1-4427-bf08-3e7295db6836/ChatAI.ReadWrite openid profile offline_access',
-  bingAiRefreshToken: '',
-  bingAiOid: '',
-  _2captchaKey: '',
-  bingReasoning: false, // 是否深度思考
+  // bingAiToken: '', // copilot.microsoft.com accessToken
+  // bingAiClientId: '',
+  // bingAiScope: '140e65af-45d1-4427-bf08-3e7295db6836/ChatAI.ReadWrite openid profile offline_access',
+  // bingAiRefreshToken: '',
+  // bingAiOid: '',
+  // _2captchaKey: '',
+  // bingReasoning: false, // 是否深度思考
   apiMaxToken: 4096,
   maxModelTokens: 32000,
   enableToolPrivateSend: false, // 是否允许智能模式下私聊骚扰其他群友。主人不受影响。
@@ -323,8 +327,13 @@ const defaultConfig = {
   mediaRecognitionGeminiTool: true,
   gemini_fallbackModel: "gemini-2.5-flash",
   ScheduleTask_Tool: true,
+  ScheduleTask_MaxPerUser: 1,
+  ScheduleTask_CronMaxPerUser: 0,
+  ScheduleTask_CronMinInterval: 60,
+  ScheduleTask_CronTasks: [],
   rateLimiting: 0,
   chatgptBlockCount: 50,
+  TTSAudio_Tool: false,
 
   // 记忆系统配置
   enableMemory: false, // 是否启用记忆系统
@@ -350,13 +359,37 @@ if (fs.existsSync(`${_path}/plugins/chatgpt-plugin/config/config.json`)) {
 config = lodash.merge({}, defaultConfig, config)
 config.version = defaultConfig.version
 
+/** 递归清理从本地读取但 defaultConfig 中已经不存在的多余键 */
+function removeExtraKeys(target, base) {
+  for (const key in target) {
+    // 如果 defaultConfig 中没有这个键，则直接从内存中删除
+    if (!Object.prototype.hasOwnProperty.call(base, key)) {
+      delete target[key];
+    } else if (lodash.isPlainObject(target[key]) && lodash.isPlainObject(base[key])) {
+      // 如果都是普通对象，则递归往下清理嵌套的多余键
+      removeExtraKeys(target[key], base[key]);
+    }
+  }
+}
+removeExtraKeys(config, defaultConfig);
+
+// ===================
+// 重启后强制设置的选项 // 启动时内存里的这两个配置变成了 false，但不会立刻写入硬盘的 config.json
+config.focus_CloudTranscode = false
+config.ttsHD = false
+config.doNotCheckPaintPluginSuccess = true
+// ===================
+
 function saveDiff(target) {
   /** 递归判断Diff */
   function deepDiff(obj, base) {
     function changes(object, base) {
       return lodash.transform(object, function (result, value, key) {
+        if (!Object.prototype.hasOwnProperty.call(base, key)) {
+          return;
+        }
         if (!lodash.isEqual(value, base[key])) {
-          result[key] = (lodash.isObject(value) && lodash.isObject(base[key]))
+          result[key] = (lodash.isPlainObject(value) && lodash.isPlainObject(base[key]))
             ? changes(value, base[key])
             : value;
         }

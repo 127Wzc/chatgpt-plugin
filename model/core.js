@@ -54,6 +54,7 @@ import { QwenApi } from '../utils/alibaba/qwen-api.js'
 import { BingAIClient } from '../client/CopilotAIClient.js'
 import Keyv from 'keyv'
 import crypto from 'crypto'
+import { getImageBase64 } from '../utils/paimonFuction.js'
 import { GithubAPITool } from '../utils/tools/GithubTool.js'
 import { Misaka_WebSearchTool } from '../utils/tools/Misaka_WebSearchTool.js'
 import { TavilySearchAndExtractTool } from '../utils/tools/TavilySearchAndExtractTool.js'
@@ -72,7 +73,7 @@ import { EmojiTool } from '../utils/tools/EmojiTool.js'
 import { MemoryTool } from '../utils/tools/MemoryTool.js'
 import { EmojiLikeTool } from '../utils/tools/EmojiLikeTool.js'
 import { ScheduleTaskTool } from '../utils/tools/ScheduleTaskTool.js'
-import { getImageBase64 } from '../utils/paimonFuction.js'
+import { TTSAudioTool } from '../utils/tools/TTSAudioTool.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -149,7 +150,7 @@ async function handleSystem(e, system, settings) {
 }
 
 /** 合并插件用系统提示词 */
-function mergeSystemPrompt(systemPrompt, e) {
+function mergeSystemPrompt(systemPrompt, e, opt = {}) {
   // 呆毛版 在 prompt 中替换文本使用 e.sender 信息
   if (Config.isReplacePromptForSenderMsg) {
     systemPrompt = replacePromptForSenderMsg(e, systemPrompt);
@@ -166,8 +167,17 @@ function mergeSystemPrompt(systemPrompt, e) {
   if (Config.enableChatSuno) {
     systemPrompt += '如果我要求你生成音乐或写歌，你需要回复适合Suno生成音乐的信息。请使用Verse、Chorus、Bridge、Outro和End等关键字对歌词进行分段，如[Verse 1]。音乐信息需要使用markdown包裹的JSON格式回复给我，结构为```json{"option": "Suno", "tags": "style", "title": "title of the song", "lyrics": "lyrics"}```。'
   }
+  // 感知现实时间
   if (Config.getCurrentTime) {
-    systemPrompt += `\nCurrent time: ${formatDate(new Date())}.`;
+    function buildConversationTimeline(reply_Timestamps) {
+      if (!reply_Timestamps?.length) return ''
+      return '\nConversation timeline:\n' + reply_Timestamps.map((ts, i) =>
+        `- ${formatDate(new Date(ts))}`
+      ).join('\n')
+    }
+
+    systemPrompt += `\nCurrent time: ${formatDate(new Date())}.`
+    systemPrompt += buildConversationTimeline(opt.replyTimestamps)
   }
   return systemPrompt
 }
@@ -200,108 +210,109 @@ class Core {
     }
     const userData = await getUserData(e.user_id)
     const useCast = userData.cast || {}
-    if (use === 'bing') { // 使用接口 ##############################
-      const cacheOptions = {
-        namespace: Config.toneStyle,
-        store: new KeyvFile({ filename: 'cache.json' })
-      }
-      const conversationsCache = new Keyv(cacheOptions)
-      let client = new BingAIClient(Config.bingAiToken, Config.sydneyReverseProxy, Config.debug, Config._2captchaKey, Config.bingAiClientId, Config.bingAiScope, Config.bingAiRefreshToken, Config.bingAiOid, Config.bingReasoning)
-      const conversationKey = `SydneyUser_${e.sender.user_id}`
-      const conversations = (await conversationsCache.get(conversationKey)) || {
-        messages: [],
-        createdAt: Date.now()
-      }
-      if (Config.debug) {
-        logger.debug(JSON.stringify(conversations))
-      }
-      const previousCachedMessages = SydneyAIClient.getMessagesForConversation(conversations.messages, conversation.parentMessageId)
-        .map((message) => {
-          return {
-            text: message.message,
-            author: message.role === 'User' ? 'user' : 'bot'
-          }
-        })
-      let system = opt.system.bing
+    // if (use === 'bing') { // 使用接口 ##############################
+    //   const cacheOptions = {
+    //     namespace: Config.toneStyle,
+    //     store: new KeyvFile({ filename: 'cache.json' })
+    //   }
+    //   const conversationsCache = new Keyv(cacheOptions)
+    //   let client = new BingAIClient(Config.bingAiToken, Config.sydneyReverseProxy, Config.debug, Config._2captchaKey, Config.bingAiClientId, Config.bingAiScope, Config.bingAiRefreshToken, Config.bingAiOid, Config.bingReasoning)
+    //   const conversationKey = `SydneyUser_${e.sender.user_id}`
+    //   const conversations = (await conversationsCache.get(conversationKey)) || {
+    //     messages: [],
+    //     createdAt: Date.now()
+    //   }
+    //   if (Config.debug) {
+    //     logger.debug(JSON.stringify(conversations))
+    //   }
+    //   const previousCachedMessages = SydneyAIClient.getMessagesForConversation(conversations.messages, conversation.parentMessageId)
+    //     .map((message) => {
+    //       return {
+    //         text: message.message,
+    //         author: message.role === 'User' ? 'user' : 'bot'
+    //       }
+    //     })
+    //   let system = opt.system.bing
 
-      system = mergeSystemPrompt(system, e)
+    //   system = mergeSystemPrompt(system, e)
 
-      if (opt.settings.enableGroupContext && e.isGroup) {
-        let chats = await getChatHistoryGroup(e, Config.groupContextLength)
-        const namePlaceholder = '[name]'
-        const defaultBotName = 'Copilot'
-        const groupContextTip = Config.groupContextTip
-        let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
-        system = system.replaceAll(namePlaceholder, botName || defaultBotName) +
-          ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
-        system += 'Attention, you are currently chatting in a qq group, then one who asks you now is' + `${e.sender.card || e.sender.nickname}(${e.sender.user_id}).`
-        system += `the group name is ${e.group.name || e.group_name}, group id is ${e.group_id}.`
-        system += `Your nickname is ${botName} in the group,`
-        if (chats) {
-          system += 'There is the conversation history in the group, you must chat according to the conversation history context"'
-          system += chats
-            .map(chat => {
-              let sender = chat.sender || {}
-              return `【${sender.card || sender.nickname}】(qq：${sender.user_id}, ${roleMap[sender.role] || 'normal user'}，${sender.area ? 'from ' + sender.area + ', ' : ''} ${sender.age} years old, 群头衔：${sender.title}, gender: ${sender.sex}, time：${formatDate(new Date(chat.time * 1000))}, messageId: ${chat.message_id}) 说：${chat.raw_message}`
-            })
-            .join('\n')
-        }
-      }
-      const msg = `System:\n${system}\n\nPrevious Messages:\n${JSON.stringify(previousCachedMessages)}\n\nUser: ${prompt}`
-      const response = await client.sendMessage(msg)
-      logger.info({ response })
-      const userMessage = {
-        id: crypto.randomUUID(),
-        parentMessageId: conversation.parentMessageId,
-        role: 'User',
-        message: prompt
-      }
-      conversations.messages.push(userMessage)
-      const replyMessage = {
-        id: crypto.randomUUID(),
-        parentMessageId: userMessage.id,
-        role: 'Bing',
-        message: response
-      }
-      conversations.messages.push(replyMessage)
-      await conversationsCache.set(conversationKey, conversations)
-      return {
-        text: response,
-        parentMessageId: replyMessage.id
+    //   if (opt.settings.enableGroupContext && e.isGroup) {
+    //     let chats = await getChatHistoryGroup(e, Config.groupContextLength)
+    //     const namePlaceholder = '[name]'
+    //     const defaultBotName = 'Copilot'
+    //     const groupContextTip = Config.groupContextTip
+    //     let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
+    //     system = system.replaceAll(namePlaceholder, botName || defaultBotName) +
+    //       ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
+    //     system += 'Attention, you are currently chatting in a qq group, then one who asks you now is' + `${e.sender.card || e.sender.nickname}(${e.sender.user_id}).`
+    //     system += `the group name is ${e.group.name || e.group_name}, group id is ${e.group_id}.`
+    //     system += `Your nickname is ${botName} in the group,`
+    //     if (chats) {
+    //       system += 'There is the conversation history in the group, you must chat according to the conversation history context"'
+    //       system += chats
+    //         .map(chat => {
+    //           let sender = chat.sender || {}
+    //           return `【${sender.card || sender.nickname}】(qq：${sender.user_id}, ${roleMap[sender.role] || 'normal user'}，${sender.area ? 'from ' + sender.area + ', ' : ''} ${sender.age} years old, 群头衔：${sender.title}, gender: ${sender.sex}, time：${formatDate(new Date(chat.time * 1000))}, messageId: ${chat.message_id}) 说：${chat.raw_message}`
+    //         })
+    //         .join('\n')
+    //     }
+    //   }
+    //   const msg = `System:\n${system}\n\nPrevious Messages:\n${JSON.stringify(previousCachedMessages)}\n\nUser: ${prompt}`
+    //   const response = await client.sendMessage(msg)
+    //   logger.info({ response })
+    //   const userMessage = {
+    //     id: crypto.randomUUID(),
+    //     parentMessageId: conversation.parentMessageId,
+    //     role: 'User',
+    //     message: prompt
+    //   }
+    //   conversations.messages.push(userMessage)
+    //   const replyMessage = {
+    //     id: crypto.randomUUID(),
+    //     parentMessageId: userMessage.id,
+    //     role: 'Bing',
+    //     message: response
+    //   }
+    //   conversations.messages.push(replyMessage)
+    //   await conversationsCache.set(conversationKey, conversations)
+    //   return {
+    //     text: response,
+    //     parentMessageId: replyMessage.id
 
-      }
-    } else if (use === 'api3') { // 使用接口 ##############################
-      // official without cloudflare
-      let accessToken = await redis.get('CHATGPT:TOKEN')
-      // if (!accessToken) {
-      //   throw new Error('未绑定ChatGPT AccessToken，请使用#chatgpt设置token命令绑定token')
-      // }
-      this.chatGPTApi = new OfficialChatGPTClient({
-        accessToken,
-        apiReverseUrl: Config.api,
-        timeoutMs: 120000
-      })
-      let sendMessageResult = await this.chatGPTApi.sendMessage(prompt, conversation)
-      // 更新最后一条prompt
-      await redis.set(`CHATGPT:CONVERSATION_LAST_MESSAGE_PROMPT:${sendMessageResult.conversationId}`, prompt)
-      // 更新最后一条messageId
-      await redis.set(`CHATGPT:CONVERSATION_LAST_MESSAGE_ID:${sendMessageResult.conversationId}`, sendMessageResult.id)
-      await redis.set(`CHATGPT:QQ_CONVERSATION:${(e.isGroup && Config.groupMerge) ? e.group_id.toString() : e.sender.user_id}`, sendMessageResult.conversationId)
-      if (!conversation.conversationId) {
-        // 如果是对话的创建者
-        await redis.set(`CHATGPT:CONVERSATION_CREATER_ID:${sendMessageResult.conversationId}`, e.sender.user_id)
-        await redis.set(`CHATGPT:CONVERSATION_CREATER_NICK_NAME:${sendMessageResult.conversationId}`, e.sender.card)
-      }
-      (async () => {
-        let audio = await this.chatGPTApi.synthesis(sendMessageResult)
-        if (audio) {
-          await e.reply(segment.record(audio))
-        }
-      })().catch(err => {
-        logger.warn('发送语音失败', err)
-      })
-      return sendMessageResult
-    } else if (use === 'claude') { // 使用接口 ##############################
+    //   }
+    // } else if (use === 'api3') { // 使用接口 ##############################
+    //   // official without cloudflare
+    //   let accessToken = await redis.get('CHATGPT:TOKEN')
+    //   // if (!accessToken) {
+    //   //   throw new Error('未绑定ChatGPT AccessToken，请使用#chatgpt设置token命令绑定token')
+    //   // }
+    //   this.chatGPTApi = new OfficialChatGPTClient({
+    //     accessToken,
+    //     apiReverseUrl: Config.api,
+    //     timeoutMs: 120000
+    //   })
+    //   let sendMessageResult = await this.chatGPTApi.sendMessage(prompt, conversation)
+    //   // 更新最后一条prompt
+    //   await redis.set(`CHATGPT:CONVERSATION_LAST_MESSAGE_PROMPT:${sendMessageResult.conversationId}`, prompt)
+    //   // 更新最后一条messageId
+    //   await redis.set(`CHATGPT:CONVERSATION_LAST_MESSAGE_ID:${sendMessageResult.conversationId}`, sendMessageResult.id)
+    //   await redis.set(`CHATGPT:QQ_CONVERSATION:${(e.isGroup && Config.groupMerge) ? e.group_id.toString() : e.sender.user_id}`, sendMessageResult.conversationId)
+    //   if (!conversation.conversationId) {
+    //     // 如果是对话的创建者
+    //     await redis.set(`CHATGPT:CONVERSATION_CREATER_ID:${sendMessageResult.conversationId}`, e.sender.user_id)
+    //     await redis.set(`CHATGPT:CONVERSATION_CREATER_NICK_NAME:${sendMessageResult.conversationId}`, e.sender.card)
+    //   }
+    //   (async () => {
+    //     let audio = await this.chatGPTApi.synthesis(sendMessageResult)
+    //     if (audio) {
+    //       await e.reply(segment.record(audio))
+    //     }
+    //   })().catch(err => {
+    //     logger.warn('发送语音失败', err)
+    //   })
+    //   return sendMessageResult
+    // } else
+    if (use === 'claude') { // 使用接口 ##############################
       // slack已经不可用，移除
       let keys = Config.claudeApiKey?.split(/[,;]/).map(key => key.trim()).filter(key => key)
       let choiceIndex = Math.floor(Math.random() * keys.length)
@@ -330,7 +341,7 @@ class Core {
           const groupContextTip = Config.groupContextTip
           let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
 
-          option.system = mergeSystemPrompt(option.system, e)
+          option.system = mergeSystemPrompt(option.system, e, { replyTimestamps: conversation.replyTimestamps })
 
           option.system = option.system.replaceAll(namePlaceholder, botName || defaultBotName) +
             ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
@@ -444,7 +455,7 @@ class Core {
         e,
         chatId: conversation?.conversationId,
         image: e.img ? e.img[0] : undefined,
-        system: mergeSystemPrompt(opt.system.xh, e)
+        system: mergeSystemPrompt(opt.system.xh, e, { replyTimestamps: conversation.replyTimestamps })
       })
       return response
     } else if (use === 'azure') { // 使用接口 ##############################
@@ -517,7 +528,7 @@ class Core {
         option = Object.assign(option, conversation)
       }
 
-      opts.systemMessage = mergeSystemPrompt(opts.systemMessage, e)
+      opts.systemMessage = mergeSystemPrompt(opts.systemMessage, e, { replyTimestamps: conversation.replyTimestamps })
 
       if (opt.enableSmart) {
         let isAdmin = ['admin', 'owner'].includes(e.sender.role)
@@ -542,7 +553,8 @@ class Core {
         try {
           this.qwenApi = new QwenApi(opts)
           msg = await this.qwenApi.sendMessage(prompt, option)
-          logger.info(msg)
+          if (Config.debug)
+            logger.info(msg)
           while (msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) {
             if (msg.text) {
               await e.reply(msg.text.replace('\n\n\n', '\n'))
@@ -583,7 +595,8 @@ class Core {
             // 不然普通用户可能会被openai限速
             await common.sleep(300)
             msg = await this.qwenApi.sendMessage(functionResult, option, 'tool')
-            logger.info(msg)
+            if (Config.debug)
+              logger.info(msg)
 
             // 如果是函数返回结果，则跳出循环
             if (msg.conversation && msg.conversation.length > 0) {
@@ -654,7 +667,7 @@ class Core {
       }
       let system = opt.system.gemini
 
-      system = mergeSystemPrompt(system, e)
+      system = mergeSystemPrompt(system, e, { replyTimestamps: conversation.replyTimestamps })
 
       if (opt.settings.enableGroupContext && e.isGroup) {
         let chats = await getChatHistoryGroup(e, Config.groupContextLength)
@@ -717,7 +730,7 @@ class Core {
           ...opt.settings,
           groupContextLength
         })
-        system = mergeSystemPrompt(system, e)
+        system = mergeSystemPrompt(system, e, { replyTimestamps: conversation.replyTimestamps })
         if (extraSystemMessage) {
           system += extraSystemMessage
         }
@@ -737,7 +750,8 @@ class Core {
         assistantLabel: Config.assistantLabel,
         fetch: newFetch,
         maxModelTokens: Config.maxModelTokens,
-        maxResponseTokens: Config.apiMaxToken
+        maxResponseTokens: Config.apiMaxToken,
+        chatgptBlockCount: Config.chatgptBlockCount,
       }
       if (!Config.openAiForceUseReverse) {
         let openAIAccessible = (Config.proxy || !(await isCN())) // 配了代理或者服务器在国外，默认认为不需要反代
@@ -858,12 +872,14 @@ class Core {
           if (Config.debug) // 避免控制台刷屏
             logger.info(msg)
 
-          /** 工具调用计数器 */
-          let toolCallCount = 0
-          /** 工具调用最大次数 */
-          const maxToolCalls = 5 // API 接口太蠢了，总是无限循环函数
+          /** 工具调用轮次计数器 */
+          let toolRoundCount = 0
+          /** 工具调用最大轮次数 */
+          const maxToolRounds = 3
+          // 只要模型返回了需要调用工具，且没有超过最大轮次，就继续循环
+          while ((msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) && toolRoundCount < maxToolRounds) {
+            toolRoundCount++
 
-          while ((msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) && toolCallCount < maxToolCalls) {
             if (msg.text) {
               await this.reply((msg.text.replace(/\n{2,}/g, '\n')).trim())
             }
@@ -871,12 +887,12 @@ class Core {
             const pendingToolCalls = msg.toolCalls?.length
               ? msg.toolCalls
               : (msg.functionCall
-                  ? [{
-                      id: `legacy_${crypto.randomUUID()}`,
-                      type: 'function',
-                      function: msg.functionCall
-                    }]
-                  : [])
+                ? [{
+                  id: `legacy_${crypto.randomUUID()}`,
+                  type: 'function',
+                  function: msg.functionCall
+                }]
+                : [])
 
             if (pendingToolCalls.length === 0) {
               break
@@ -895,11 +911,6 @@ class Core {
             let previousMessageId = msg.id
 
             for (const toolCall of pendingToolCalls) {
-              if (toolCallCount >= maxToolCalls) {
-                break
-              }
-              toolCallCount++
-
               let name = toolCall.function.name
               let args
               try {
@@ -907,6 +918,8 @@ class Core {
               } catch (e) {
                 args = {}
               }
+
+              logger.info(`[Chatgpt][API] execution function: ${JSON.stringify({ name, args })}`)
 
               if (!args.groupId) {
                 args.groupId = e.group_id + '' || e.sender.user_id + ''
@@ -924,7 +937,7 @@ class Core {
                     isAdmin,
                     sender
                   }, args), e)
-                  logger.info(`function ${name} execution result: ${functionResult}`)
+                  logger.info(`[Chatgpt][API] function ${name} execution result: ${JSON.stringify(functionResult)}`)
                 } else {
                   functionResult = `Function ${name} not found.`
                   logger.warn(functionResult)
@@ -958,14 +971,16 @@ class Core {
             // 不然普通用户可能会被openai限速
             await common.sleep(300)
 
+            // 将所有并行工具的结果一次性POST回给API，进入下一轮
             msg = await sendOpenAIWithContextFallback(null, option)
 
             if (Config.debug)
               logger.info(msg)
           }
 
-          if (toolCallCount >= maxToolCalls) {
-            logger.warn(`工具调用已达上限 ${maxToolCalls} 次，强制终止工具循环`)
+          // 判断退出原因，如果是达到最大轮次强制退出的，打印警告
+          if ((msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) && toolRoundCount >= maxToolRounds) {
+            logger.warn(`工具调用已达最大轮次上限 ${maxToolRounds} 轮，强制终止工具循环`)
           }
         } catch (err) {
           if (err.message?.indexOf('context_length_exceeded') > 0) {
@@ -1123,10 +1138,10 @@ async function collectTools(e) {
     fullTools = fullTools.filter(tool => tool !== serpTool);
   }
 
-  if (Config.add_sf_image_edit) {
-    tools.push(...[new Sf_image_edit()])
-    fullTools.push(...[new Sf_image_edit()])
-  }
+  // if (Config.add_sf_image_edit) {
+  //   tools.push(...[new Sf_image_edit()])
+  //   fullTools.push(...[new Sf_image_edit()])
+  // }
 
   if (Config.switch_atOtherUserTool) {
     tools.push(...[new AtOtherUserTool()])
@@ -1171,6 +1186,11 @@ async function collectTools(e) {
   if (Config.ScheduleTask_Tool) {
     tools.push(new ScheduleTaskTool())
     fullTools.push(new ScheduleTaskTool())
+  }
+
+  if (Config.TTSAudio_Tool) {
+    tools.push(new TTSAudioTool())
+    fullTools.push(new TTSAudioTool())
   }
 
   let systemAddition = ''

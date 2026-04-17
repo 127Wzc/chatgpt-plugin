@@ -112,7 +112,7 @@ export function supportGuoba() {
         {
           field: 'getCurrentTime',
           label: '允许感知现实时间',
-          bottomHelpMessage: '开启后机器人可以感知现实时间；但如果开启了“允许机器人读取近期的群聊”Bot也可以从群聊记录中知道时间',
+          bottomHelpMessage: '开启后机器人可以感知现实时间和历史对话时间线；但如果开启了“允许机器人读取近期的群聊”Bot也可以从群聊记录中知道时间',
           component: 'Switch'
         },
         {
@@ -129,7 +129,7 @@ export function supportGuoba() {
         {
           field: 'groupContextLength',
           label: '允许机器人读取近期的最多群聊聊天记录条数。',
-          bottomHelpMessage: '允许机器人读取近期的最多群聊聊天记录条数。太多可能会超。默认50。同时影响所有模式，不止必应',
+          bottomHelpMessage: '允许机器人读取近期的最多群聊聊天记录条数。非常消耗输入token，推荐20',
           component: 'InputNumber'
         },
         {
@@ -158,7 +158,7 @@ export function supportGuoba() {
           field: 'chatgptBlockCount',
           label: '对话历史记录条数',
           helpMessage: '单位：条',
-          bottomHelpMessage: '限制历史记录最大条数，必须是偶数，用户+AI回复 为2条；目前仅支持 Gemini',
+          bottomHelpMessage: '限制历史记录最大条数，必须是偶数，用户+AI回复 为2条；设置为0则由 token 控制；目前仅支持 API、Gemini',
           component: 'InputNumber',
           componentProps: {
             min: 0,
@@ -169,6 +169,12 @@ export function supportGuoba() {
           field: 'forwardReasoning',
           label: '是否转发思考过程',
           bottomHelpMessage: 'OpenAI的o系列、deepseek的r系列等思考模型的思考过程是否以转发形式发出。仅适配reasoning_content。默认开启。',
+          component: 'Switch'
+        },
+        {
+          field: 'enableSuggestedResponses',
+          label: '开启回复建议',
+          bottomHelpMessage: '开启后，如果模型返回数据包含 suggestedResponses 则发出来',
           component: 'Switch'
         },
         {
@@ -318,98 +324,98 @@ export function supportGuoba() {
             max: 2
           }
         },
-        {
-          label: '以下为必应方式的配置。',
-          component: 'Divider'
-        },
-        {
-          field: 'bingReasoning',
-          label: 'Bing开启思考',
-          bottomHelpMessage: 'Copilot的思考功能。开启后无法搜索',
-          component: 'Switch'
-        },
-        {
-          field: 'enforceMaster',
-          label: '加强主人认知',
-          bottomHelpMessage: '加强主人认知。希望机器人认清主人，避免NTR可开启。开启后可能会与自设定的内容有部分冲突。sydney模式可以放心开启',
-          component: 'Switch'
-        },
-        {
-          field: 'sydney',
-          label: 'Custom的设定',
-          bottomHelpMessage: '你可以自己改写设定，让Copilot变成你希望的样子。可能存在不稳定的情况',
-          component: 'InputTextArea'
-        },
-        {
-          field: 'sydneyReverseProxy',
-          label: '必应反代',
-          bottomHelpMessage: '用于创建对话（默认不用于正式对话）。目前国内ip和部分境外IDC IP由于微软限制创建对话，如果有bing.com的反代可以填在此处，或者使用proxy。默认为https://666102.201666.xyz',
-          component: 'Input'
-        },
-        {
-          field: 'bingAiToken',
-          label: '必应AccessToken',
-          bottomHelpMessage: 'Copilot的AccessToken，scope需为ChatAI.ReadWrite。可以发送`#Copilot配置方法`查看浏览器获取配置的方法。',
-          component: 'Input'
-        },
-        {
-          field: 'bingAiClientId',
-          label: '必应ClientId',
-          bottomHelpMessage: '配合RefreshToken刷新AccessToken',
-          component: 'Input'
-        },
-        {
-          field: 'bingAiScope',
-          label: '必应Auth Scope',
-          bottomHelpMessage: '配合RefreshToken刷新AccessToken',
-          component: 'Input'
-        },
-        {
-          field: 'bingAiRefreshToken',
-          label: '必应RefreshToken',
-          bottomHelpMessage: '配合RefreshToken刷新AccessToken',
-          component: 'Input'
-        },
-        {
-          field: 'bingAiOid',
-          label: '必应Oid',
-          bottomHelpMessage: '（homeAccountId）配合RefreshToken刷新AccessToken',
-          component: 'Input'
-        },
-        {
-          field: '_2captchaKey',
-          label: '2captcha API密钥',
-          bottomHelpMessage: '用于解除Copilot的验证码',
-          component: 'Input'
-        },
-        {
-          label: '以下为API3方式的配置',
-          component: 'Divider'
-        },
-        {
-          field: 'api',
-          label: 'ChatGPT API反代服务器地址',
-          bottomHelpMessage: 'ChatGPT的API反代服务器，用于绕过Cloudflare访问ChatGPT API',
-          component: 'Input'
-        },
-        {
-          field: 'apiBaseUrl',
-          label: 'apiBaseUrl地址',
-          bottomHelpMessage: 'apiBaseUrl地址',
-          component: 'Input'
-        },
-        {
-          field: 'apiForceUseReverse',
-          label: '强制使用ChatGPT反代',
-          bottomHelpMessage: '即使配置了proxy，依然使用ChatGPT反代',
-          component: 'Switch'
-        },
-        {
-          field: 'useGPT4',
-          label: '使用GPT-4',
-          bottomHelpMessage: '使用GPT-4，注意试用配额较低，如果用不了就关掉',
-          component: 'Switch'
-        },
+        // {
+        //   label: '以下为必应方式的配置',
+        //   component: 'Divider'
+        // },
+        // {
+        //   field: 'bingReasoning',
+        //   label: 'Bing开启思考',
+        //   bottomHelpMessage: 'Copilot的思考功能。开启后无法搜索',
+        //   component: 'Switch'
+        // },
+        // {
+        //   field: 'enforceMaster',
+        //   label: '加强主人认知',
+        //   bottomHelpMessage: '加强主人认知。希望机器人认清主人，避免NTR可开启。开启后可能会与自设定的内容有部分冲突。sydney模式可以放心开启',
+        //   component: 'Switch'
+        // },
+        // {
+        //   field: 'sydney',
+        //   label: 'Custom的设定',
+        //   bottomHelpMessage: '你可以自己改写设定，让Copilot变成你希望的样子。可能存在不稳定的情况',
+        //   component: 'InputTextArea'
+        // },
+        // {
+        //   field: 'sydneyReverseProxy',
+        //   label: '必应反代',
+        //   bottomHelpMessage: '用于创建对话（默认不用于正式对话）。目前国内ip和部分境外IDC IP由于微软限制创建对话，如果有bing.com的反代可以填在此处，或者使用proxy。默认为https://666102.201666.xyz',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'bingAiToken',
+        //   label: '必应AccessToken',
+        //   bottomHelpMessage: 'Copilot的AccessToken，scope需为ChatAI.ReadWrite。可以发送`#Copilot配置方法`查看浏览器获取配置的方法。',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'bingAiClientId',
+        //   label: '必应ClientId',
+        //   bottomHelpMessage: '配合RefreshToken刷新AccessToken',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'bingAiScope',
+        //   label: '必应Auth Scope',
+        //   bottomHelpMessage: '配合RefreshToken刷新AccessToken',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'bingAiRefreshToken',
+        //   label: '必应RefreshToken',
+        //   bottomHelpMessage: '配合RefreshToken刷新AccessToken',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'bingAiOid',
+        //   label: '必应Oid',
+        //   bottomHelpMessage: '（homeAccountId）配合RefreshToken刷新AccessToken',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: '_2captchaKey',
+        //   label: '2captcha API密钥',
+        //   bottomHelpMessage: '用于解除Copilot的验证码',
+        //   component: 'Input'
+        // },
+        // {
+        //   label: '以下为API3方式的配置',
+        //   component: 'Divider'
+        // },
+        // {
+        //   field: 'api',
+        //   label: 'ChatGPT API反代服务器地址',
+        //   bottomHelpMessage: 'ChatGPT的API反代服务器，用于绕过Cloudflare访问ChatGPT API',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'apiBaseUrl',
+        //   label: 'apiBaseUrl地址',
+        //   bottomHelpMessage: 'apiBaseUrl地址',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'apiForceUseReverse',
+        //   label: '强制使用ChatGPT反代',
+        //   bottomHelpMessage: '即使配置了proxy，依然使用ChatGPT反代',
+        //   component: 'Switch'
+        // },
+        // {
+        //   field: 'useGPT4',
+        //   label: '使用GPT-4',
+        //   bottomHelpMessage: '使用GPT-4，注意试用配额较低，如果用不了就关掉',
+        //   component: 'Switch'
+        // },
         {
           label: '以下为智谱清言（ChatGLM）方式的配置。',
           component: 'Divider'
@@ -784,7 +790,7 @@ export function supportGuoba() {
         {
           field: 'cloudMode',
           label: '云转码API发送数据模式',
-          bottomHelpMessage: '语音传回是数据链接还是文件：呆毛版三种vits api选择链接；如果你部署的是本地vits服务或使用的是微软azure，请改为文件',
+          bottomHelpMessage: 'vits选链接，本地vits服务/voicevox/azure选文件（呆毛注：目前没有云转码服务了，选“关闭云转码”，不过 NapCat 适配器已内置转码，音质很棒）',
           component: 'Select',
           componentProps: {
             options: [
@@ -825,19 +831,23 @@ export function supportGuoba() {
           componentProps: {
             options: [
               {
-                label: 'vits-uma-genshin-honkai',
-                value: 'vits-uma-genshin-honkai'
-              },
-              {
-                label: '微软Azure',
+                label: '微软Azure语音',
                 value: 'azure'
               },
               {
                 label: 'VoiceVox',
                 value: 'voicevox'
+              },
+              {
+                label: '自定义语音',
+                value: 'vits-uma-genshin-honkai'
               }
             ]
           }
+        },
+        {
+          label: '微软Azure语音',
+          component: 'Divider'
         },
         {
           field: 'azureTTSKey',
@@ -881,6 +891,10 @@ export function supportGuoba() {
           }
         },
         {
+          label: 'voicevox语音',
+          component: 'Divider'
+        },
+        {
           field: 'voicevoxSpace',
           label: 'voicevox语音转换API地址',
           bottomHelpMessage: '可使用https://2ndelement-voicevox.hf.space, 也可github搜索voicevox-engine自建',
@@ -906,13 +920,13 @@ export function supportGuoba() {
           }
         },
         {
-          label: 'VITS语音生成：前提：语音模式源为"vits-uma-genshin-honkai"；云转码API发送数据模式为链接；指令#tts语音帮助',
+          label: '自定义语音',
           component: 'Divider'
         },
         {
           field: 'ttsSpace',
-          label: 'vits语音转换API地址',
-          bottomHelpMessage: '使用Bert-VITS2请填入https://bv2.firefly.matce.cn （已失效）；使用ai_hobbyist请填入ai_hobbyist；使用vits-uma前往duplicate空间 https://huggingface.co/spaces/ikechan8370/vits-uma-genshin-honkai 或 https://misaka20001-paimon-is-not-a-food.hf.space/api/generate 后查看api地址并填入此处（有需要请填写"语音转换huggingface反代"）；使用FishApi请填入：https://api.fish.audio；或使用海螺api地址https://hailuo.maliy.top/v1/audio/speech 或参考 https://github.com/xiaoY233/MiniMax-Free-API 自行部署；填入后请重启bot并F5刷新此页面将刷新 vits默认角色 列表，不同站点对应不同发音人，错误填写 vits默认角色 将无法生成语音',
+          label: '语音转换API地址',
+          bottomHelpMessage: '使用Bert-VITS2请填入https://bv2.firefly.matce.cn （已失效）；使用ai_hobbyist请填入ai_hobbyist；使用vits-uma前往duplicate空间 https://huggingface.co/spaces/ikechan8370/vits-uma-genshin-honkai 后查看api地址并填入此处（有需要请填写"语音转换huggingface反代"）；使用FishApi请填入：https://api.fish.audio；使用 siliconflow 的填写地址 https://api.siliconflow.cn/v1/audio/speech （目前呆毛推荐使用）；填入后请重启bot并F5刷新此页面将刷新 vits默认角色 列表，不同站点对应不同发音人，错误填写 vits默认角色 将无法生成语音；可用指令： #tts语音帮助',
           component: 'Input'
         },
         {
@@ -939,6 +953,31 @@ export function supportGuoba() {
           bottomHelpMessage: '使用vits语音时，将机器人的文字回复翻译成日文后获取语音。' +
             '若想使用插件的翻译功能，发送"#chatgpt翻译帮助"查看使用方法，支持图片翻译，引用翻译',
           component: 'Switch'
+        },
+        {
+          label: 'siliconflow 语音api设置',
+          component: 'Divider'
+        },
+        {
+          field: 'siliconflow_Voice_ApiKey',
+          label: 'Api Key',
+          bottomHelpMessage: '参考 https://docs.siliconflow.cn/cn/userguide/capabilities/text-to-speech 获取key和自定义个人音色',
+          component: 'Input'
+        },
+        {
+          field: 'siliconflow_Voice_Model',
+          label: '语音模型',
+          bottomHelpMessage: '推荐 FunAudioLLM/CosyVoice2-0.5B',
+          component: 'Input'
+        },
+        {
+          field: 'siliconflow_Voice_ReferenceId',
+          label: '发音人ID',
+          bottomHelpMessage: '推荐自己上传，CosyVoice2语音模型时可填面包大大生成的语音ID: 可莉: speech:keli:cm08sphf600du6l3t3szh0t16:bvteaayeqsrhnvkpfchr, 派蒙: speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj',
+          component: 'Input',
+          componentProps: {
+            placeholder: 'speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj',
+          },
         },
         {
           label: 'fish.audio的设置',
@@ -984,16 +1023,16 @@ export function supportGuoba() {
         //   bottomHelpMessage: '（仅限api.fish.audio）这里填入你想要的模型model的代码，例如派蒙的是efc1ce3726a64bbc947d53a1465204aa；说明：api.fish.audio 不受 vits默认角色 控制，仅由 api_fish_audio_model 决定其发音人',
         //   component: 'Input'
         // },
-        {
-          label: '海螺发音的设置',
-          component: 'Divider'
-        },
-        {
-          field: 'hailuoApiKey',
-          label: '海螺Key',
-          bottomHelpMessage: '如果不知道请联系小呆毛；（需要配置key）（自行搭建文档https://github.com/LLM-Red-Team/hailuo-free-api 请在域名中包含hailuo以便本插件识别）',
-          component: 'Input'
-        },
+        // {
+        //   label: '海螺发音的设置',
+        //   component: 'Divider'
+        // },
+        // {
+        //   field: 'hailuoApiKey',
+        //   label: '海螺Key',
+        //   bottomHelpMessage: '如果不知道请联系小呆毛；（需要配置key）（自行搭建文档https://github.com/LLM-Red-Team/hailuo-free-api 请在域名中包含hailuo以便本插件识别）',
+        //   component: 'Input'
+        // },
         {
           label: 'VITS的设置',
           component: 'Divider'
@@ -1305,12 +1344,6 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'ScheduleTask_Tool',
-          label: '工具新增-定时工具',
-          bottomHelpMessage: '让AI可以定时被唤醒提示或调用其他工具，例如“明天早上8点叫我并查询今天的热门新闻”；目前限制限制每个用户仅能储存1条定时任务并且最大定时为1个月；推荐开启 “全局-At群友-提示词版” 或 “工具新增-at群友” 以第一时间获取ai通知；修改该选项后重启生效',
-          component: 'Switch'
-        },
-        {
           field: 'poke_userIDs',
           label: '工具新增-戳一戳',
           bottomHelpMessage: '新增主动戳一戳其他群友的工具；如果你的适配器不支持 反戳，请转到此平台: https://github.com/AIGC-Yunzai/TRSS-Yunzai-NapC',
@@ -1329,25 +1362,7 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'switch_onlineEmojiTool',
-          label: '工具新增-在线表情包',
-          bottomHelpMessage: '新增在线随机表情包工具 sendOnlineEmoji（按AI当前情绪自动映射中文标签，如生气/高兴）。需要同时配置“在线表情包URL前缀”。',
-          component: 'Switch'
-        },
-        {
-          field: 'onlineEmojiApiPrefix',
-          label: '在线表情包URL前缀',
-          bottomHelpMessage: '支持 {tags} 占位符。示例：http://your-domain/api/v1/external/images/random?api_key=YOUR_KEY&tags={tags}&count=1 。若不写 {tags}，工具会自动覆盖或追加 tags 参数。',
-          component: 'Input'
-        },
-        {
-          field: 'add_sf_image_edit',
-          label: '工具新增-Gemini Banana',
-          bottomHelpMessage: '增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/doc/guoba_imgs/guobaHelp-Gemini%20Image.webp',
-          component: 'Switch'
-        },
-        {
-          field: 'at_otherUser',
+          field: 'switch_atOtherUserTool',
           label: '工具新增-at群友',
           bottomHelpMessage: '新增主动At其他群友的工具；推荐仅在 “全局-At群友-提示词版” 无法生效时启用',
           component: 'Switch'
@@ -1365,6 +1380,12 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'TTSAudio_Tool',
+          label: '工具新增-智能发送语音',
+          bottomHelpMessage: '新增智能发送语音工具，提供给AI让Ta可以在适当的时候给你发送语音；需要先配置语音模式下可正常发送语音',
+          component: 'Switch'
+        },
+        {
           field: 'disable_sendMessage_tool',
           label: '工具禁用-文字工具',
           bottomHelpMessage: '智能模式中，禁用“发送文本到当前群或指定群聊或私聊（sendMessage）工具”，适用于文字模式、图片模式、sf图片模式重复发送相同文本等问题',
@@ -1373,34 +1394,99 @@ export function supportGuoba() {
         {
           field: 'change_handleMsg_tool',
           label: '工具调整-msg工具',
-          bottomHelpMessage: '智能模式中，修改“handleMsg工具”：1.引用消息时，bot如果要加精华时将强制指定为引用的消息；2.禁用撤回消息的功能。（该选项用于某些不够聪明的模型，例如 gemini 2.0 系列）（当你在控制台看到mark消息“[ChatGPT][handleMsg] ai 已正确选择引用消息 source_message_id”就可以将该选项关闭了）',
+          bottomHelpMessage: '智能模式中，修改“handleMsg工具”：1.引用消息时，bot如果要加精华时将强制指定为引用的消息；2.禁用撤回消息的功能。（该选项用于某些不够聪明的模型，例如 gemini 2.0 系列）（当你在控制台看到mark消息“[ChatGPT][handleMsg] Agent 已正确选择引用消息 source_message_id”就可以将该选项关闭了）',
           component: 'Switch'
+        },
+        {
+          label: '智能模式 定时任务',
+          component: 'Divider'
+        },
+        {
+          field: 'ScheduleTask_Tool',
+          label: '工具新增-定时工具',
+          bottomHelpMessage: '让AI可以定时被唤醒提示或调用其他工具，例如"明天早上8点叫我并查询今天的热门新闻"；支持同时储存多条定时任务，AI可以查询和取消已有任务；最大定时为1个月；推荐开启 "全局-At群友-提示词版" 或 "工具新增-at群友" 以第一时间获取ai通知；修改该选项后重启生效',
+          component: 'Switch'
+        },
+        {
+          field: 'ScheduleTask_MaxPerUser',
+          label: '定时任务上限',
+          bottomHelpMessage: '定时任务上限，任务满时AI会提示用户选择取消哪条再新建；设置为0则关闭普通用户定时任务权限；主人不受此限制',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+          }
+        },
+        {
+          field: 'ScheduleTask_CronMaxPerUser',
+          label: '循环任务上限',
+          bottomHelpMessage: 'Cron循环任务上限，任务满时AI会提示用户选择取消哪条再新建；设置为0则关闭普通用户循环任务权限；主人不受此限制',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+          }
+        },
+        {
+          field: 'ScheduleTask_CronMinInterval',
+          label: '循环最小间隔',
+          helpMessage: '单位：(分钟)',
+          bottomHelpMessage: 'Cron循环任务允许的最小执行间隔(分钟)。例如60表示最快每小时一次，1440表示最快每天一次。防止用户创建过于频繁的循环任务；主人不受此限制',
+          component: 'InputNumber',
+          componentProps: {
+            min: 1,
+            placeholder: '默认60'
+          }
+        },
+        {
+          field: 'ScheduleTask_CronTasks_Display',
+          label: '循环任务列表',
+          bottomHelpMessage: '当前活跃的循环定时任务。可删除标签来移除不需要的循环任务',
+          component: 'GTags',
+          componentProps: {
+            allowAdd: false,
+            allowDel: true
+          }
         },
         {
           label: '智能模式 绘画设置',
           component: 'Divider'
         },
         {
-          field: 'drawToolS',
+          field: 'drawToolsArr',
           label: '智能模式绘画',
-          bottomHelpMessage: '智能模式绘画 适用于支持调用函数的大模型，需要开启 全局-智能模式，在智能模式下控制使用的绘画插件；若使用Gemini可设置gemini强制工具关键词。注意 “智能模式绘画” 和 “绘画prompt模式” 只推荐开启其中一个',
+          bottomHelpMessage: '智能模式绘画 适用于支持调用函数的大模型，需要开启 智能模式；若你已安装对应绘画插件并支持（括号）中的指令，可勾选后提供给Agent调用。注意 “智能模式绘画” 和 “绘画prompt模式” 只推荐开启其中一个',
           component: "Select",
           componentProps: {
+            allowAdd: true,
+            allowDel: true,
+            mode: 'multiple',
             options: [
-              { label: "关闭智能模式绘画", value: false },
               { label: "nai-plugin（#绘画）", value: "nai-plugin-1" },
               { label: "nai-plugin-4.0（#draw）", value: "nai-plugin-4" },
               { label: "paimonnai-plugin（#绘画）", value: "paimonnai-plugin" },
               { label: "ap-plugin（#绘图）", value: "ap-plugin" },
-              { label: "siliconflow-plugin（#sf绘画）", value: "siliconflow-plugin-sf" },
-              { label: "siliconflow-plugin（#mjp）", value: "siliconflow-plugin-mj" },
+              { label: "siliconflow-plugin（#sf绘画）", value: "siliconflow-paint" },
+              { label: "siliconflow-plugin（#mjp #niji）", value: "Midjourney-paint" },
+              { label: "siliconflow-Jimeng（#即梦绘画）", value: "Jimeng-paint" },
+              { label: "siliconflow-plugin（#g谷歌编辑图片）", value: "gemini-Image-gg" },
+              { label: "siliconflow-plugin（#s谷歌编辑图片）", value: "gemini-Image-ss" },
+              { label: "siliconflow-plugin（#d聊天绘画工具）", value: "sf-dd-paint" },
             ],
           },
         },
         {
+          field: 'siliconflow-gemini-Image_help_field',
+          label: '帮助: Siliconflow-Plugin',
+          component: 'Input',
+          bottomHelpMessage: '1. #g谷歌编辑图片: 增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 或 #s谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/doc/guoba_imgs/guobaHelp-Gemini%20Image.webp ;',
+          componentProps: {
+            readonly: true,
+            defaultValue: 'https://github.com/AIGC-Yunzai/siliconflow-plugin'
+          }
+        },
+        {
           field: 'drawByJsonToPlugin',
           label: '绘画prompt模式',
-          bottomHelpMessage: '绘画prompt模式 适用于不支持调用函数的大模型；用法：开启后直接告知你想要画画的内容，需要先安装对应插件；若失效请缩短你的设定的长度、关闭是否允许机器人读取近期的群聊聊天记录、关闭Suno音乐、或使用#结束对话；目前支持API(openai)、gemini、通义千问。',
+          bottomHelpMessage: '绘画prompt模式 适用于不支持智能模式(Agent)的接口；用法：开启后直接告知你想要画画的内容，需要先安装对应插件；若失效请缩短你的设定的长度、关闭是否允许机器人读取近期的群聊聊天记录、关闭Suno音乐、或使用#结束对话；目前支持API(openai)、gemini、通义千问。注意 “智能模式绘画” 和 “绘画prompt模式” 只推荐开启其中一个',
           component: "Select",
           componentProps: {
             options: [
@@ -1414,19 +1500,28 @@ export function supportGuoba() {
             ],
           },
         },
-        {
-          field: 'doNotCheckPaintPluginSuccess',
-          label: '不检测画图成功',
-          bottomHelpMessage: '绘画prompt模式时检测是否成功调用#绘画/#绘图，未返回成功则回复“在这个群还不能使用#绘画 功能啦”；需要调用指定插件：https://github.com/misaka20002/ap-plugin 或 https://github.com/misaka20002/paimonnai-plugin 或 https://github.com/misaka20002/siliconflow-plugin',
-          component: 'Switch'
-        },
+        // {
+        //   field: 'doNotCheckPaintPluginSuccess',
+        //   label: '不检测画图成功',
+        //   bottomHelpMessage: '绘画prompt模式时检测是否成功调用#绘画/#绘图，未返回成功则回复“在这个群还不能使用#绘画 功能啦”；需要调用指定插件：https://github.com/misaka20002/ap-plugin 或 https://github.com/misaka20002/paimonnai-plugin 或 https://github.com/misaka20002/siliconflow-plugin',
+        //   component: 'Switch'
+        // },
         {
           field: 'nai3PluginToPaintPrefix',
-          label: '绘画前缀',
-          bottomHelpMessage: '定义绘画前缀，例如画师、画风、模型、采样器等；ap/nai/sf共用',
+          label: 'nai绘画前缀',
+          bottomHelpMessage: '定义绘画前缀，例如画师、画风、模型、采样器等；应用于 #绘画 #绘图 #draw',
           component: 'InputTextArea',
           componentProps: {
             placeholder: 'toddler, artist:ciloranko, [artist:tianliang duohe fangdongye], [artist:sho_(sho_lwlw)], [artist:baku-p], [artist:tsubasa_tsubasa], ',
+          },
+        },
+        {
+          field: 'sfPluginToPaintPrefix',
+          label: 'sf绘画前缀',
+          bottomHelpMessage: '定义绘画前缀，例如画师、画风、模型、sf绘画模式预设词等；应用于 #sf绘画 #mjp #niji #即梦绘画 #d聊天绘画工具',
+          component: 'InputTextArea',
+          componentProps: {
+            placeholder: ' --1:1',
           },
         },
         {
@@ -2014,11 +2109,28 @@ export function supportGuoba() {
       ],
       // 获取配置数据方法（用于前端填充显示数据）
       getConfigData() {
-        return Config
+        // 生成循环任务展示标签
+        const cronTasks = Config.ScheduleTask_CronTasks || []
+        const configObj = Object.assign({}, Config)
+        configObj.ScheduleTask_CronTasks_Display = cronTasks.map(t => {
+          const content = (t.content || '').replace(/\[CQ:[^\]]+\]/g, '').trim()
+          return `${t.user_id} | ${t.group_id || '私聊'} | [${t.taskId}] | ${t.cronExpression} | ${content}`
+        })
+        return configObj
       },
       // 设置配置的方法（前端点确定后调用的方法）
       setConfigData(data, { Result }) {
         for (let [keyPath, value] of Object.entries(data)) {
+          // 处理循环任务标签删除同步
+          if (keyPath === 'ScheduleTask_CronTasks_Display') {
+            const remainingIds = value.map(tag => {
+              const m = tag.match(/\[([^\]]+)\]/)
+              return m ? m[1] : null
+            }).filter(Boolean)
+            const tasks = Config.ScheduleTask_CronTasks || []
+            lodash.set(Config.getConfig(), 'ScheduleTask_CronTasks', tasks.filter(t => remainingIds.includes(t.taskId)))
+            continue
+          }
           // 处理黑名单
           if (keyPath === 'blockWords' || keyPath === 'promptBlockWords' || keyPath === 'initiativeChatGroups' || keyPath === 'paimon_chuoyichuo_ByMsgGroups') {
             value = value.toString().split(/[,，;；\|]/)
@@ -2038,9 +2150,9 @@ export function supportGuoba() {
               return acc
             }, [])
           }
-          else if (keyPath === 'autoEmoticons.allowGroups' || keyPath === 'autoEmoticons.getBotByQQ_targetQQArr' || keyPath === 'bymDisableGroup') {
-            value = value.map(item => item.trim()).filter(item => item !== '')
-          }
+          // else if (keyPath === 'autoEmoticons.allowGroups' || keyPath === 'autoEmoticons.getBotByQQ_targetQQArr' || keyPath === 'bymDisableGroup') {
+          //   value = value.map(item => item.trim()).filter(item => item !== '')
+          // }
 
           // 使用 lodash 处理锅巴传入的 点分隔 keyPath
           lodash.set(Config.getConfig(), keyPath, value)
