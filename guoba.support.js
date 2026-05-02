@@ -129,7 +129,8 @@ export function supportGuoba() {
           bottomHelpMessage: '填写贴表情回复确认的表情值，例如66是爱心、111是QAQ，具体值可在控制台中自己贴个表情查看；贴表情仅QQ适配器群聊可用；填写 0 为关闭回复确认；填写 -1 为“xx在哦”文字确认。如果你的适配器不支持贴表情，请转到此平台: https://github.com/AIGC-Yunzai/TRSS-Yunzai-NapC',
           component: 'InputNumber',
           componentProps: {
-            min: -1
+            min: -1,
+            step: 1
           }
         },
         {
@@ -162,7 +163,7 @@ export function supportGuoba() {
         {
           field: 'groupMerge',
           label: '群组消息合并',
-          bottomHelpMessage: '开启后，群聊消息将被视为同一对话',
+          bottomHelpMessage: '开启后，群聊消息将被视为同一对话；呆毛注：开启后所有群友视为同一人，推荐关闭该选项',
           component: 'Switch'
         },
         {
@@ -712,6 +713,15 @@ export function supportGuoba() {
           field: 'gemini_vqa_model',
           label: 'gemini内容识别模型',
           bottomHelpMessage: '用于#识图 #gpt翻[英|中|译] 智能模式Gemini内容识别和工具；支持图片和视频识别；默认值：gemini-2.5-flash',
+          component: 'Select',
+          componentProps: {
+            options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
+          }
+        },
+        {
+          field: 'geminiSearchModel',
+          label: 'gemini搜索模型',
+          bottomHelpMessage: '用于智能模式(搜索工具)-搜索来源-Gemini原生搜索；默认值：gemini-2.5-flash',
           component: 'Select',
           componentProps: {
             options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
@@ -1479,8 +1489,8 @@ export function supportGuoba() {
               { label: "siliconflow-plugin（#mjp #niji）", value: "Midjourney-paint" },
               { label: "siliconflow-Jimeng（#即梦绘画）", value: "Jimeng-paint" },
               { label: "siliconflow-plugin（#g谷歌编辑图片）", value: "gemini-Image-gg" },
-              { label: "siliconflow-plugin（#s谷歌编辑图片）", value: "gemini-Image-ss" },
-              { label: "siliconflow-plugin（#d聊天绘画工具）", value: "sf-dd-paint" },
+              { label: "siliconflow-plugin（#sgpt编辑图片）", value: "gpt-Image-2-ss" },
+              { label: "siliconflow-plugin（#d魔搭编辑图片）", value: "sf-dd-paint" },
             ],
           },
         },
@@ -1488,7 +1498,7 @@ export function supportGuoba() {
           field: 'siliconflow-gemini-Image_help_field',
           label: '帮助: Siliconflow-Plugin',
           component: 'Input',
-          bottomHelpMessage: '1. #g谷歌编辑图片: 增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 或 #s谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/doc/guoba_imgs/guobaHelp-Gemini%20Image.webp ;',
+          bottomHelpMessage: '1. #g谷歌编辑图片: （工具名 gemini-Image-gg） 增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/doc/guoba_imgs/guobaHelp-Gemini%20Image.webp ; 2. #sgpt编辑图片 （工具名 gpt-Image-2-ss） 配置方法同1，使用 openai 接口接入 gpt-Image ; 3. #d魔搭编辑图片 （工具名 sf-dd-paint） 配置方法参考 https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/moscope.md',
           componentProps: {
             readonly: true,
             defaultValue: 'https://github.com/AIGC-Yunzai/siliconflow-plugin'
@@ -1529,7 +1539,7 @@ export function supportGuoba() {
         {
           field: 'sfPluginToPaintPrefix',
           label: 'sf绘画前缀',
-          bottomHelpMessage: '定义绘画前缀，例如画师、画风、模型、sf绘画模式预设词等；应用于 #sf绘画 #mjp #niji #即梦绘画 #d聊天绘画工具',
+          bottomHelpMessage: '定义绘画前缀，例如画师、画风、模型、sf绘画模式预设词等；应用于 #sf绘画 #mjp #niji #即梦绘画 #d魔搭编辑图片',
           component: 'InputTextArea',
           componentProps: {
             placeholder: ' --1:1',
@@ -1698,7 +1708,7 @@ export function supportGuoba() {
         {
           field: 'paimon_chou_cd',
           label: '戳一戳响应CD',
-          bottomHelpMessage: '戳一戳响应CD，QQ默认戳一戳CD为10s，建议填写大于10的整数。设置为0则禁用戳一戳响应CD',
+          bottomHelpMessage: '戳一戳个人响应CD，QQ默认戳一戳CD为10s，建议填写大于10',
           helpMessage: '单位：秒',
           component: 'InputNumber',
           componentProps: {
@@ -1834,7 +1844,7 @@ export function supportGuoba() {
         {
           field: 'meme_CD',
           label: 'meme CD',
-          bottomHelpMessage: 'meme CD个人时间，建议填写大于1的整数。设置为0则禁用戳一戳响应CD',
+          bottomHelpMessage: 'meme生成个人CD时间',
           helpMessage: '单位：秒',
           component: 'InputNumber',
           componentProps: {
@@ -2026,16 +2036,16 @@ export function supportGuoba() {
             min: 0
           }
         },
-        {
-          field: 'sydneyFirstMessageTimeout',
-          label: 'Sydney模式接受首条信息超时时间',
-          helpMessage: '单位：毫秒',
-          bottomHelpMessage: '超过该时间阈值未收到Bing的任何消息，则断开本次连接并重试（最多重试3次，失败后将返回timeout waiting for first message）',
-          component: 'InputNumber',
-          componentProps: {
-            min: 15000
-          }
-        },
+        // {
+        //   field: 'sydneyFirstMessageTimeout',
+        //   label: 'Sydney模式接受首条信息超时时间',
+        //   helpMessage: '单位：毫秒',
+        //   bottomHelpMessage: '超过该时间阈值未收到Bing的任何消息，则断开本次连接并重试（最多重试3次，失败后将返回timeout waiting for first message）',
+        //   component: 'InputNumber',
+        //   componentProps: {
+        //     min: 15000
+        //   }
+        // },
         {
           label: 'emoji合成',
           component: 'Divider'
