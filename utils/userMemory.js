@@ -268,16 +268,33 @@ export class UserMemory {
     return normalizeText(text)
   }
 
-  static _isDuplicateMemory(candidate, existingMemories = []) {
-    if (!candidate || !candidate.content) return true
+  /**
+   * 查找同 key 的已有记忆（同 memoryType 且 key 匹配）。
+   * 返回匹配的记忆对象，未找到返回 null。
+   */
+  static _findSameKeyMemory(candidate, existingMemories = []) {
+    if (!candidate || !candidate.content) return null
     const next = memoryDedupeKey(candidate)
-    if (!next) return true
-    return existingMemories.some(m => {
+    if (!next) return null
+    return existingMemories.find(m => {
       if (!m || m.memoryType !== candidate.memoryType) return false
       const old = memoryDedupeKey(m)
       if (!old) return false
       return old === next || old.includes(next) || next.includes(old)
-    })
+    }) || null
+  }
+
+  /**
+   * 判断是否为完全重复的记忆（同 key 且内容也相同）。
+   * 用于 compact 去重和跳过完全相同的写入。
+   */
+  static _isDuplicateMemory(candidate, existingMemories = []) {
+    if (!candidate || !candidate.content) return true
+    const match = this._findSameKeyMemory(candidate, existingMemories)
+    if (!match) return false
+    // 同 key 但内容不同 → 不算重复（需要替换）
+    // 同 key 且内容也相同 → 才算真正的重复
+    return normalizeText(candidate.content) === normalizeText(match.content)
   }
 
   static async _read(scope, id, createIfMissing = true) {
@@ -362,11 +379,6 @@ export class UserMemory {
         const sections = await this._read(scope, targetId)
         const existing = this._parseMemories(sections, 'Facts')
 
-        // 保存前按结构化 key 去重，避免工具调用把同一条长期记忆重复写入 Markdown。
-        if (this._isDuplicateMemory(memory, existing)) {
-          return { success: true, message: '记忆已存在，已跳过' }
-        }
-
         const next = {
           ...memory,
           id: memory.id || `${Date.now()}${Math.random().toString(36).substring(2, 9)}`,
@@ -381,14 +393,39 @@ export class UserMemory {
           tags: Array.isArray(memory.tags) ? memory.tags : []
         }
 
-        // 新记忆先进入 Facts，再统一 compact：生成 Summary、归档过时项、执行上限整理。
+        // 查找同 key 的已有记忆
+        const sameKeyMemory = this._findSameKeyMemory(memory, existing)
+
+        if (sameKeyMemory) {
+          // 同 key 且内容也完全相同 → 跳过，无需重复写入
+          if (normalizeText(memory.content) === normalizeText(sameKeyMemory.content)) {
+            return { success: true, message: '记忆已存在，已跳过' }
+          }
+
+          // 同 key 但内容不同 → 替换旧记忆为新记忆（将旧记忆归档，写入新记忆）
+          logger.debug(`[Memory] 同 key 记忆更新：「${clip(sameKeyMemory.content, 40)}」→「${clip(memory.content, 40)}」`)
+
+          // 将旧记忆移入 Archive
+          if (!sections.Archive) sections.Archive = []
+          sections.Archive = [renderMemoryLine({ ...sameKeyMemory, scope, target: targetId }), ...sections.Archive]
+
+          // 从 Facts 中移除旧记忆行
+          const oldKey = memoryDedupeKey(sameKeyMemory)
+          sections.Facts = (sections.Facts || []).filter(line => {
+            const parsed = parseMemoryLine(line)
+            if (!parsed) return true
+            return memoryDedupeKey(parsed) !== oldKey || parsed.memoryType !== sameKeyMemory.memoryType
+          })
+        }
+
+        // 新记忆进入 Facts，再统一 compact：生成 Summary、归档过时项、执行上限整理。
         sections.Facts = [renderMemoryLine(next), ...(sections.Facts || [])]
         await writeMemoryFile(scope, targetId, sections)
         await this._compact(scope, targetId)
 
         return {
           success: true,
-          message: '记忆保存成功'
+          message: sameKeyMemory ? '记忆已更新' : '记忆保存成功'
         }
       })
     } catch (err) {
