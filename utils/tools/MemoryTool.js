@@ -1,6 +1,43 @@
 import { AbstractTool } from './AbstractTool.js'
 import { UserMemory } from '../userMemory.js'
 
+function buildCurrentMessageSource(e) {
+  const messageId = e.message_id || e.seq || ''
+  return [
+    'current_message',
+    e.isGroup ? (e.group_id || 'unknown_group') : 'private',
+    e.user_id || 'unknown_user',
+    messageId
+  ].map(item => String(item || '')).join(':')
+}
+
+function normalizeMemorySource(source, e) {
+  const currentSource = buildCurrentMessageSource(e)
+  if (!source) {
+    return currentSource
+  }
+
+  const parts = String(source).trim().split(':')
+  const [type, group, user, message] = parts
+  if (type === 'current_message') {
+    return source === currentSource ? source : currentSource
+  }
+
+  if (type === 'quoted_message') {
+    const expectedGroup = e.isGroup ? String(e.group_id || 'unknown_group') : 'private'
+    const expectedMessage = String(e.source_message_id || '')
+    const expectedUser = e.senderUser_id ? String(e.senderUser_id) : ''
+    const isVerified = group === expectedGroup
+      && (!expectedUser || user === expectedUser)
+      && (!expectedMessage || message === expectedMessage)
+    return isVerified ? source : ['unverified_quoted_message', group, user, message].map(item => String(item || '')).join(':')
+  }
+
+  return type.startsWith('unverified_')
+    ? source
+    : [`unverified_${type || 'unknown'}`, ...parts.slice(1)].map(item => String(item || '')).join(':')
+}
+
 /**
  * Tool: AI记忆工具
  * 允许AI在合适的时候主动记忆重要信息，用于构建更好的用户画像和对话体验
@@ -68,12 +105,7 @@ export class MemoryTool extends AbstractTool {
     try {
       const scope = opts.scope === 'group' && e.isGroup ? 'group' : 'user'
       const messageId = e.message_id || e.seq || ''
-      const defaultSource = [
-        'current_message',
-        e.isGroup ? (e.group_id || 'unknown_group') : 'private',
-        e.user_id || 'unknown_user',
-        messageId
-      ].map(item => String(item || '')).join(':')
+      const normalizedSource = normalizeMemorySource(source, e)
 
       // 构建记忆对象
       const memory = {
@@ -90,7 +122,7 @@ export class MemoryTool extends AbstractTool {
         content,
         importance,
         key,
-        source: source || defaultSource,
+        source: normalizedSource,
         confidence,
         tags: tags ? tags.split(/[,，]/).map(t => t.trim()).filter(t => t) : []
       }

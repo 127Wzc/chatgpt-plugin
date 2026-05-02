@@ -71,7 +71,7 @@ function memoryDedupeKey(memory = {}) {
 }
 
 function memoryTarget(scope, memory = {}) {
-  return memory.target || (scope === 'group' ? memory.groupId : memory.userId)
+  return scope === 'group' ? memory.groupId : memory.userId
 }
 
 function memorySource(memory = {}) {
@@ -302,7 +302,7 @@ export class UserMemory {
     const withStorageMeta = memory => ({
       ...memory,
       scope: memory.scope || scope,
-      target: memory.target || id,
+      target: id,
       groupId: memory.groupId || (scope === 'group' ? id : null)
     })
     const archive = this._parseMemories(sections, 'Archive').map(withStorageMeta)
@@ -347,13 +347,6 @@ export class UserMemory {
     await writeMemoryFile(scope, id, sections)
   }
 
-  // 记忆提取交给模型通过 save_memory 工具判断。
-  // 这里保留空实现是为了兼容旧调用路径，但不再用代码正则硬判用户意图，
-  // 避免把提问、未确认信息或用户群名片误写成长期记忆。
-  static _extractMemoriesFromUserMessage(text = '') {
-    return []
-  }
-
   static async saveMemory(memory) {
     try {
       const scope = memory.scope === 'group' ? 'group' : 'user'
@@ -369,7 +362,7 @@ export class UserMemory {
         const sections = await this._read(scope, targetId)
         const existing = this._parseMemories(sections, 'Facts')
 
-        // 保存前去重，避免工具调用或自动规则把同一条长期记忆重复写入 Markdown。
+        // 保存前按结构化 key 去重，避免工具调用把同一条长期记忆重复写入 Markdown。
         if (this._isDuplicateMemory(memory, existing)) {
           return { success: true, message: '记忆已存在，已跳过' }
         }
@@ -430,64 +423,6 @@ export class UserMemory {
     } catch (err) {
       logger.error('[Memory] 获取群记忆失败:', err)
       return []
-    }
-  }
-
-  static async autoExtractAndSaveFromMessage(e, text = '') {
-    try {
-      if (!Config.enableMemory) {
-        return { success: false, saved: 0, reason: 'memory_disabled' }
-      }
-      const userId = e?.user_id || e?.sender?.user_id
-      if (!userId) {
-        return { success: false, saved: 0, reason: 'missing_user_id' }
-      }
-
-      const cooldownKey = `CHATGPT:MEMORY:AUTO_COOLDOWN:${userId}`
-      const inCooldown = await redis.get(cooldownKey)
-      if (inCooldown) {
-        return { success: true, saved: 0, reason: 'cooldown' }
-      }
-
-      const candidates = this._extractMemoriesFromUserMessage(text)
-      if (!candidates.length) {
-        return { success: true, saved: 0, reason: 'no_candidate' }
-      }
-
-      // 自动规则只负责补充明显长期信息；更复杂的长期记忆由 save_memory 工具主动写入。
-      // 冷却时间避免同一用户连续触发时把相近内容刷进 Markdown。
-      const existingMemories = await this.getUserMemories(userId, 100, 1)
-      let saved = 0
-
-      for (const candidate of candidates) {
-        if (this._isDuplicateMemory(candidate, existingMemories)) continue
-        const memory = {
-          timestamp: Date.now(),
-          date: nowText(),
-          userId,
-          groupId: e?.group_id || null,
-          isGroup: Boolean(e?.isGroup),
-          userMsg: String(text || ''),
-          userName: e?.sender?.card || e?.sender?.nickname || '未知',
-          memoryType: candidate.memoryType,
-          content: candidate.content,
-          importance: candidate.importance,
-          tags: Array.isArray(candidate.tags) ? candidate.tags : []
-        }
-        const saveRet = await this.saveMemory(memory)
-        if (saveRet?.success && !saveRet.message?.includes('跳过')) {
-          saved++
-          existingMemories.unshift(memory)
-        }
-      }
-
-      if (saved > 0) {
-        await redis.set(cooldownKey, '1', { EX: 90 })
-      }
-      return { success: true, saved, reason: saved > 0 ? 'saved' : 'all_duplicate' }
-    } catch (err) {
-      logger.error('[Memory] 自动提取记忆失败:', err)
-      return { success: false, saved: 0, reason: err.message || 'unknown_error' }
     }
   }
 
