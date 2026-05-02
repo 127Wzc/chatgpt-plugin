@@ -944,7 +944,7 @@ export class chatgpt extends plugin {
     if (Config.switch_ChatCooldown)
       await ChatCooldown.start(e.user_id, e.group_id)
 
-    // 加载用户记忆（如果启用）
+    // 加载用户记忆（如果启用）：记忆作为本轮上下文前置到用户 prompt，避免污染动态 system
     if (Config.enableMemory) {
       try {
         const { UserMemory } = await import('../utils/userMemory.js')
@@ -952,15 +952,9 @@ export class chatgpt extends plugin {
         if (autoExtractResult.saved > 0) {
           logger.info(`[Memory] 自动提取保存 ${autoExtractResult.saved} 条记忆 - 用户 ${e.user_id}`)
         }
-        const memories = await UserMemory.getUserMemories(
-          e.user_id,
-          Config.memoryContextLimit,
-          Config.memoryMinImportance
-        )
-        if (memories && memories.length > 0) {
-          const memoryPrompt = UserMemory.formatMemoriesForPrompt(memories)
-          prompt += memoryPrompt
-          logger.info(`[Memory] 为用户 ${e.user_id} 加载了 ${memories.length} 条记忆`)
+        e.chatgptMemoryPrompt = await UserMemory.buildMemoryPromptForEvent(e, rawUserMsgForMemory)
+        if (e.chatgptMemoryPrompt) {
+          logger.info(`[Memory] 为用户 ${e.user_id} 构建本轮记忆上下文`)
         }
       } catch (err) {
         logger.error('[Memory] 加载记忆失败:', err)

@@ -338,9 +338,12 @@ const defaultConfig = {
 
   // 记忆系统配置
   enableMemory: false, // 是否启用记忆系统
-  maxMemoriesPerUser: 20, // 每个用户最大记忆数量
+  maxMemoriesPerUser: 20, // 每个用户最大活跃记忆数量
+  maxMemoriesPerGroup: 30, // 每个群最大活跃记忆数量
   memoryMinImportance: 1, // 附加到对话的最低重要性阈值（1-10）
-  memoryContextLimit: 10, // 每次对话附加的最大记忆数量
+  memorySummaryLimit: 12, // 每个记忆文件保留在 Summary 中的最大条数
+  memoryRelevantFactsLimit: 4, // 每次对话从 Facts 中补充的相关记忆条数
+  memoryPromptMaxChars: 1000, // 每次前置到用户消息的记忆上下文最大字符数
 
 }
 const _path = process.cwd()

@@ -164,5 +164,12 @@
   "removeCQCodeFocus": true,
   "switch_atOtherUserTool": false,
   "isProcessCQAtCode": true,
-  "poke_userIDs": true
+  "poke_userIDs": true,
+  "enableMemory": false,
+  "maxMemoriesPerUser": 20,
+  "maxMemoriesPerGroup": 30,
+  "memoryMinImportance": 1,
+  "memorySummaryLimit": 12,
+  "memoryRelevantFactsLimit": 4,
+  "memoryPromptMaxChars": 1000
 }

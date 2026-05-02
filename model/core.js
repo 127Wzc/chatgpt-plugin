@@ -74,6 +74,7 @@ import { MemoryTool } from '../utils/tools/MemoryTool.js'
 import { EmojiLikeTool } from '../utils/tools/EmojiLikeTool.js'
 import { ScheduleTaskTool } from '../utils/tools/ScheduleTaskTool.js'
 import { TTSAudioTool } from '../utils/tools/TTSAudioTool.js'
+import { UserMemory } from '../utils/userMemory.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -210,6 +211,16 @@ class Core {
     }
     const userData = await getUserData(e.user_id)
     const useCast = userData.cast || {}
+    if (Config.enableMemory && !e.chatgptMemoryPrompt) {
+      try {
+        e.chatgptMemoryPrompt = await UserMemory.buildMemoryPromptForEvent(e, prompt)
+      } catch (err) {
+        logger.error('[Memory] 构建本轮记忆上下文失败:', err)
+      }
+    }
+    if (e.chatgptMemoryPrompt) {
+      prompt = `${e.chatgptMemoryPrompt}\n\n【当前用户消息】\n${prompt}`
+    }
     // if (use === 'bing') { // 使用接口 ##############################
     //   const cacheOptions = {
     //     namespace: Config.toneStyle,
@@ -334,14 +345,13 @@ class Core {
           system: opt.system.claude,
           max_tokens: Config.claudeApiMaxToken
         }
+        option.system = mergeSystemPrompt(option.system, e, { replyTimestamps: conversation.replyTimestamps })
         if (opt.settings.enableGroupContext && e.isGroup) {
           let chats = await getChatHistoryGroup(e, Config.groupContextLength)
           const namePlaceholder = '[name]'
           const defaultBotName = 'GeminiPro'
           const groupContextTip = Config.groupContextTip
           let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
-
-          option.system = mergeSystemPrompt(option.system, e, { replyTimestamps: conversation.replyTimestamps })
 
           option.system = option.system.replaceAll(namePlaceholder, botName || defaultBotName) +
             ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')

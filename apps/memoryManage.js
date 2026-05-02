@@ -35,6 +35,16 @@ export class memoryManage extends plugin {
           // permission: 'master'
         },
         {
+          reg: '^#清空群记忆$',
+          fnc: 'clearGroupMemories',
+          permission: 'master'
+        },
+        {
+          reg: '^#删除群记忆',
+          fnc: 'deleteGroupMemory',
+          permission: 'master'
+        },
+        {
           reg: '^#删除记忆',
           fnc: 'deleteMemory',
           permission: 'master'
@@ -119,46 +129,27 @@ export class memoryManage extends plugin {
     }
 
     try {
-      // 获取所有用户的记忆 (从Hash表读取)
-      const userMemoryKeys = await redis.keys('CHATGPT:MEMORY:USER:*')
-      let allMemories = []
-
-      for (const key of userMemoryKeys) {
-        const memoriesHash = await redis.hGetAll(key)
-        if (memoriesHash && Object.keys(memoriesHash).length > 0) {
-          const memories = Object.values(memoriesHash).map(m => JSON.parse(m))
-          allMemories.push(...memories)
-        }
-      }
-
-      // 筛选当前群的记忆
-      const groupMemories = allMemories.filter(m => m.groupId === e.group_id)
+      const groupMemories = await UserMemory.getGroupMemories(e.group_id, 100, 0)
 
       if (groupMemories.length === 0) {
         await e.reply('本群还没有任何记忆', true)
         return
       }
 
-      // 按用户分组
-      const userMemoriesMap = {}
-      groupMemories.forEach(m => {
-        if (!userMemoriesMap[m.userId]) {
-          userMemoriesMap[m.userId] = []
+      const messages = groupMemories.map((m, index) => {
+        let msg = `【群记忆 ${index + 1}】\n`
+        msg += `类型：${m.memoryType}\n`
+        msg += `内容：${m.content}\n`
+        msg += `重要性：${'⭐'.repeat(Math.min(m.importance, 10))} (${m.importance}/10)\n`
+        if (m.tags && m.tags.length > 0) {
+          msg += `标签：${m.tags.join(', ')}\n`
         }
-        userMemoriesMap[m.userId].push(m)
+        msg += `时间：${m.date}\n`
+        msg += `ID：${m.id}`
+        return msg
       })
 
-      const messages = []
-      for (const [userId, memories] of Object.entries(userMemoriesMap)) {
-        const userName = memories[0].userName || userId
-        let msg = `👤 用户：${userName} (${userId})\n`
-        msg += `记忆数量：${memories.length}条\n`
-        msg += `最高重要性：${Math.max(...memories.map(m => m.importance))}/10\n`
-        msg += `最新记忆：${memories[0].date}`
-        messages.push(msg)
-      }
-
-      await e.reply(await makeForwardMsg(e, messages, `群记忆统计 (${Object.keys(userMemoriesMap).length}人)`))
+      await e.reply(await makeForwardMsg(e, messages, `群记忆 (共${groupMemories.length}条)`))
     } catch (err) {
       logger.error('[Memory] 获取群记忆失败:', err)
       await e.reply('获取群记忆失败', true)
@@ -331,6 +322,120 @@ export class memoryManage extends plugin {
   }
 
   /**
+   * 清空当前群的群记忆（主人专用）
+   */
+  async clearGroupMemories(e) {
+    if (!Config.enableMemory) {
+      await e.reply('记忆系统未启用', true)
+      return
+    }
+
+    if (!e.isGroup) {
+      await e.reply('此命令仅在群聊中可用', true)
+      return
+    }
+
+    try {
+      const memories = await UserMemory.getGroupMemories(e.group_id, 1, 0)
+      if (!memories || memories.length === 0) {
+        await e.reply('本群没有群记忆，无需清空', true)
+        return
+      }
+
+      await e.reply('确定要清空本群的所有群记忆吗？此操作不可恢复！\n回复"是"确认，回复其他内容取消', true)
+
+      const e_new = await this.awaitContext()
+
+      if (!e_new.msg || !(/^(是|y|yes|确定|确认)$/i).test(e_new.msg.trim())) {
+        await e.reply('操作已取消', true)
+        return
+      }
+
+      const success = await UserMemory.clearGroupMemories(e.group_id)
+
+      if (success) {
+        await e.reply('已成功清空本群的群记忆', true)
+        logger.info(`[Memory] 主人 ${e.user_id} 清空了群 ${e.group_id} 的群记忆`)
+      } else {
+        await e.reply('清空群记忆失败', true)
+      }
+    } catch (err) {
+      logger.error('[Memory] 清空群记忆失败:', err)
+      await e.reply('清空群记忆失败', true)
+    }
+  }
+
+  /**
+   * 删除当前群指定群记忆（主人专用）
+   */
+  async deleteGroupMemory(e) {
+    if (!Config.enableMemory) {
+      await e.reply('记忆系统未启用', true)
+      return
+    }
+
+    if (!e.isGroup) {
+      await e.reply('此命令仅在群聊中可用', true)
+      return
+    }
+
+    const match = e.msg.match(/#删除群记忆\s+[#\s]*([a-zA-Z0-9_\-]+)/i)
+    if (!match) {
+      await e.reply('格式错误！\n用法1: #删除群记忆 序号\n用法2: #删除群记忆 记忆ID', true)
+      return
+    }
+
+    const memoryIdentifier = match[1]
+
+    try {
+      const memories = await UserMemory.getGroupMemories(e.group_id, 100, 0)
+
+      if (!memories || memories.length === 0) {
+        await e.reply('本群没有群记忆', true)
+        return
+      }
+
+      let memoryToDelete = null
+
+      if (/^\d{1,4}$/.test(memoryIdentifier)) {
+        const index = parseInt(memoryIdentifier) - 1
+        if (index < 0 || index >= memories.length) {
+          await e.reply(`序号超出范围，本群共有 ${memories.length} 条群记忆`, true)
+          return
+        }
+        memoryToDelete = memories[index]
+      } else {
+        memoryToDelete = memories.find(m => m.id === memoryIdentifier)
+        if (!memoryToDelete) {
+          await e.reply('未找到该群记忆ID', true)
+          return
+        }
+      }
+
+      await e.reply(`确定要删除以下群记忆吗？\n类型：${memoryToDelete.memoryType}\n内容：${memoryToDelete.content}\n\n回复"是"确认，回复其他内容取消`, true)
+
+      const e_new = await this.awaitContext()
+
+      if (!e_new.msg || !(/^(是|y|yes|确定|确认)$/i).test(e_new.msg.trim())) {
+        await e.reply('操作已取消', true)
+        return
+      }
+
+      const success = await UserMemory.deleteMemory(e.group_id, memoryToDelete.id, 'group')
+
+      if (success) {
+        await e.reply('群记忆已删除', true)
+        logger.info(`[Memory] 主人 ${e.user_id} 删除了群 ${e.group_id} 的群记忆: ${memoryToDelete.id}`)
+      } else {
+        await e.reply('删除群记忆失败', true)
+      }
+    } catch (err) {
+      logger.error('[Memory] 删除群记忆失败:', err)
+      await e.reply('删除群记忆失败', true)
+    }
+  }
+
+  /**
    * 删除指定记忆（主人专用）
    */
   async deleteMemory(e) {
@@ -411,17 +516,7 @@ export class memoryManage extends plugin {
     // }
 
     try {
-      // 获取所有用户的记忆统计 (从Hash表读取)
-      const userMemoryKeys = await redis.keys('CHATGPT:MEMORY:USER:*')
-      let allMemories = []
-
-      for (const key of userMemoryKeys) {
-        const memoriesHash = await redis.hGetAll(key)
-        if (memoriesHash && Object.keys(memoriesHash).length > 0) {
-          const memories = Object.values(memoriesHash).map(m => JSON.parse(m))
-          allMemories.push(...memories)
-        }
-      }
+      const allMemories = await UserMemory.getAllMemories()
 
       if (allMemories.length === 0) {
         await e.reply('当前没有任何记忆', true)
@@ -429,13 +524,16 @@ export class memoryManage extends plugin {
       }
 
       // 统计用户数量
-      const userIds = new Set(allMemories.map(m => m.userId))
+      const userIds = new Set(allMemories.filter(m => m.scope === 'user').map(m => m.userId))
+      const groupIds = new Set(allMemories.filter(m => m.scope === 'group').map(m => m.groupId))
       const totalUsers = userIds.size
+      const totalGroups = groupIds.size
       const totalMemories = allMemories.length
 
       await e.reply(
         `⚠️ 警告：此操作将清空所有用户的记忆！\n\n` +
         `总用户数：${totalUsers} 人\n` +
+        `总群数：${totalGroups} 个\n` +
         `总记忆数：${totalMemories} 条\n\n` +
         `此操作不可恢复！确定要继续吗？\n` +
         `回复"确定清空所有记忆"以确认，回复其他内容取消`,
@@ -449,20 +547,16 @@ export class memoryManage extends plugin {
         return
       }
 
-      // 清空所有用户的个人记忆
-      if (userMemoryKeys && userMemoryKeys.length > 0) {
-        for (const key of userMemoryKeys) {
-          await redis.del(key)
-        }
-      }
+      await UserMemory.clearAllMemories()
 
       await e.reply(
         `✅ 已成功清空所有记忆\n\n` +
         `清空用户数：${totalUsers} 人\n` +
+        `清空群数：${totalGroups} 个\n` +
         `清空记忆数：${totalMemories} 条`,
         true
       )
-      logger.warn(`[Memory] 主人 ${e.user_id} 清空了所有用户的记忆 (${totalUsers}人, ${totalMemories}条)`)
+      logger.warn(`[Memory] 主人 ${e.user_id} 清空了所有记忆 (${totalUsers}人, ${totalGroups}群, ${totalMemories}条)`)
     } catch (err) {
       logger.error('[Memory] 清空所有记忆失败:', err)
       await e.reply('清空所有记忆失败', true)
@@ -521,8 +615,11 @@ export class memoryManage extends plugin {
 
       msg += `\n配置信息：\n`
       msg += `  单用户上限：${Config.maxMemoriesPerUser} 条\n`
+      msg += `  单群上限：${Config.maxMemoriesPerGroup} 条\n`
       msg += `  对话最低重要性：${Config.memoryMinImportance}/10\n`
-      msg += `  对话记忆数量：${Config.memoryContextLimit} 条`
+      msg += `  摘要条数上限：${Config.memorySummaryLimit} 条\n`
+      msg += `  相关记忆补充：${Config.memoryRelevantFactsLimit} 条\n`
+      msg += `  记忆上下文上限：${Config.memoryPromptMaxChars} 字符`
 
       await e.reply(msg, true)
     } catch (err) {
@@ -544,8 +641,10 @@ export class memoryManage extends plugin {
       `【删除记忆】\n` +
       `#清空所有记忆 - 清空所有用户的记忆(主人)\n` +
       `#清空我的记忆 - 清空自己的所有记忆\n` +
+      `#清空群记忆 - 清空当前群的群记忆(主人)\n` +
       `#清空他的记忆 @某人 - 清空某人的记忆(主人)\n` +
       `#删除记忆 用户ID 序号 - 删除指定记忆(主人)\n` +
+      `#删除群记忆 序号 - 删除当前群指定群记忆(主人)\n` +
       `例如：#删除记忆 user_123 3\n\n` +
       `【统计信息】\n` +
       `#记忆统计 - 查看自己的记忆统计\n` +

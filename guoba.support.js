@@ -1554,10 +1554,20 @@ export function supportGuoba() {
         {
           field: 'maxMemoriesPerUser',
           label: '单用户最大记忆数量',
-          bottomHelpMessage: '每个用户最多保存的记忆条数，超过后会删除最早的记忆',
+          bottomHelpMessage: '每个用户最多保留的活跃记忆条数，超过后会按重要性和时效性整理，多余内容进入归档',
           component: 'InputNumber',
           componentProps: {
-            min: 10,
+            min: 5,
+            step: 1
+          }
+        },
+        {
+          field: 'maxMemoriesPerGroup',
+          label: '单群最大记忆数量',
+          bottomHelpMessage: '每个群最多保留的活跃群记忆条数，超过后会按重要性和时效性整理，多余内容进入归档',
+          component: 'InputNumber',
+          componentProps: {
+            min: 5,
             step: 1
           }
         },
@@ -1573,12 +1583,32 @@ export function supportGuoba() {
           }
         },
         {
-          field: 'memoryContextLimit',
-          label: '对话记忆数量限制',
-          bottomHelpMessage: '每次对话最多附加多少条记忆到上下文中，按重要性排序',
+          field: 'memorySummaryLimit',
+          label: '记忆摘要条数限制',
+          bottomHelpMessage: '每个用户/群Markdown记忆文件中 Summary 区域最多保留多少条精简摘要',
+          component: 'InputNumber',
+          componentProps: {
+            min: 3,
+            step: 1
+          }
+        },
+        {
+          field: 'memoryRelevantFactsLimit',
+          label: '相关记忆补充条数',
+          bottomHelpMessage: '每次对话从 Facts 区域按当前消息相关性补充多少条记忆，越大越耗token',
           component: 'InputNumber',
           componentProps: {
             min: 1,
+            step: 1
+          }
+        },
+        {
+          field: 'memoryPromptMaxChars',
+          label: '记忆上下文字符上限',
+          bottomHelpMessage: '每次对话前置到用户消息的长期记忆摘要最大字符数，用于控制token消耗',
+          component: 'InputNumber',
+          componentProps: {
+            min: 400,
             step: 1
           }
         },
