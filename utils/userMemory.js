@@ -67,7 +67,20 @@ function shouldSkipMemory(memory) {
 }
 
 function memoryDedupeKey(memory = {}) {
-  return memory.key || normalizeText(memory.content)
+  return String(memory.key || normalizeText(memory.content)).trim().toLowerCase()
+}
+
+function memoryTarget(scope, memory = {}) {
+  return memory.target || (scope === 'group' ? memory.groupId : memory.userId)
+}
+
+function memorySource(memory = {}) {
+  if (memory.source) return String(memory.source).trim()
+  const sourceType = memory.sourceType || 'current_message'
+  const sourceGroup = memory.sourceGroupId || memory.groupId || (memory.isGroup ? 'unknown_group' : 'private')
+  const sourceUser = memory.sourceUserId || memory.userId || 'unknown_user'
+  const sourceMessage = memory.sourceMessageId || memory.messageId || ''
+  return [sourceType, sourceGroup, sourceUser, sourceMessage].map(item => String(item || '')).join(':')
 }
 
 function stripBullet(line = '') {
@@ -82,7 +95,7 @@ function clip(text = '', max = 120) {
 function parseMeta(meta = '') {
   const result = {}
   String(meta || '').replace(/(\w+)="([^"]*)"/g, (_, key, value) => {
-    result[key] = value
+    result[key] = value.replace(/&quot;/g, '"')
     return ''
   })
   return result
@@ -94,14 +107,19 @@ function encodeMetaValue(value = '') {
 
 function encodeMeta(memory) {
   const tags = Array.isArray(memory.tags) ? memory.tags.join(',') : ''
+  const scope = memory.scope === 'group' ? 'group' : 'user'
   const fields = {
     id: memory.id,
     type: memory.memoryType || 'event',
+    key: memoryDedupeKey(memory),
     importance: memory.importance || 1,
+    scope,
+    target: memory.target || memoryTarget(scope, memory) || '',
+    source: memorySource(memory),
+    confidence: memory.confidence || '',
     timestamp: memory.timestamp || Date.now(),
     date: memory.date || nowText(),
     group: memory.groupId || '',
-    key: memoryDedupeKey(memory),
     tags
   }
   const meta = Object.entries(fields)
@@ -156,6 +174,10 @@ function parseMemoryLine(line = '') {
     importance: Number(meta.importance || 1),
     timestamp: Number(meta.timestamp || 0),
     date: meta.date || '',
+    scope: meta.scope || '',
+    target: meta.target || '',
+    source: meta.source || '',
+    confidence: meta.confidence ? Number(meta.confidence) : null,
     groupId: meta.group || null,
     key: meta.key || '',
     tags: meta.tags ? meta.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
@@ -277,10 +299,16 @@ export class UserMemory {
       : (Config.maxMemoriesPerUser || 20)))
     const summaryLimit = Math.max(3, Number(Config.memorySummaryLimit || DEFAULT_SUMMARY_LIMIT))
     const active = []
-    const archive = this._parseMemories(sections, 'Archive')
+    const withStorageMeta = memory => ({
+      ...memory,
+      scope: memory.scope || scope,
+      target: memory.target || id,
+      groupId: memory.groupId || (scope === 'group' ? id : null)
+    })
+    const archive = this._parseMemories(sections, 'Archive').map(withStorageMeta)
 
     // 整理阶段先把过时记忆挪到 Archive，把活跃记忆继续参与去重和排序。
-    for (const memory of this._parseMemories(sections, 'Facts')) {
+    for (const memory of this._parseMemories(sections, 'Facts').map(withStorageMeta)) {
       if (shouldArchive(memory)) {
         archive.push(memory)
       } else {
@@ -329,7 +357,7 @@ export class UserMemory {
   static async saveMemory(memory) {
     try {
       const scope = memory.scope === 'group' ? 'group' : 'user'
-      const targetId = scope === 'group' ? memory.groupId : memory.userId
+      const targetId = memoryTarget(scope, memory)
       if (!targetId) {
         return { success: false, message: '缺少记忆目标ID' }
       }
@@ -352,6 +380,10 @@ export class UserMemory {
           timestamp: memory.timestamp || Date.now(),
           date: memory.date || nowText(),
           importance: Math.min(10, Math.max(1, Number(memory.importance || 1))),
+          scope,
+          target: targetId,
+          source: memorySource(memory),
+          confidence: memory.confidence ? Math.min(1, Math.max(0, Number(memory.confidence))) : '',
           key: memoryDedupeKey(memory),
           tags: Array.isArray(memory.tags) ? memory.tags : []
         }
