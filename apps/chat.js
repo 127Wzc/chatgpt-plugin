@@ -944,14 +944,11 @@ export class chatgpt extends plugin {
     if (Config.switch_ChatCooldown)
       await ChatCooldown.start(e.user_id, e.group_id)
 
-    // 加载用户记忆（如果启用）：记忆作为本轮上下文前置到用户 prompt，避免污染动态 system
+    // 加载用户记忆（如果启用）：记忆作为本轮上下文前置到用户 prompt，避免污染动态 system。
+    // 新记忆由模型在确认有长期价值时调用 save_memory 写入；这里不再用正则从原话里硬提取。
     if (Config.enableMemory) {
       try {
         const { UserMemory } = await import('../utils/userMemory.js')
-        const autoExtractResult = await UserMemory.autoExtractAndSaveFromMessage(e, rawUserMsgForMemory)
-        if (autoExtractResult.saved > 0) {
-          logger.info(`[Memory] 自动提取保存 ${autoExtractResult.saved} 条记忆 - 用户 ${e.user_id}`)
-        }
         e.chatgptMemoryPrompt = await UserMemory.buildMemoryPromptForEvent(e, rawUserMsgForMemory)
         if (e.chatgptMemoryPrompt) {
           logger.info(`[Memory] 为用户 ${e.user_id} 构建本轮记忆上下文`)

@@ -61,6 +61,15 @@ function normalizeText(text = '') {
     .trim()
 }
 
+function shouldSkipMemory(memory) {
+  if (!memory?.content) return true
+  return false
+}
+
+function memoryDedupeKey(memory = {}) {
+  return memory.key || normalizeText(memory.content)
+}
+
 function stripBullet(line = '') {
   return String(line || '').replace(/^\s*[-*]\s+/, '').trim()
 }
@@ -79,9 +88,26 @@ function parseMeta(meta = '') {
   return result
 }
 
+function encodeMetaValue(value = '') {
+  return String(value || '').replace(/"/g, '&quot;')
+}
+
 function encodeMeta(memory) {
   const tags = Array.isArray(memory.tags) ? memory.tags.join(',') : ''
-  return `<!-- id="${memory.id}" type="${memory.memoryType || 'event'}" importance="${memory.importance || 1}" timestamp="${memory.timestamp || Date.now()}" date="${memory.date || nowText()}" group="${memory.groupId || ''}" tags="${tags}" -->`
+  const fields = {
+    id: memory.id,
+    type: memory.memoryType || 'event',
+    importance: memory.importance || 1,
+    timestamp: memory.timestamp || Date.now(),
+    date: memory.date || nowText(),
+    group: memory.groupId || '',
+    key: memoryDedupeKey(memory),
+    tags
+  }
+  const meta = Object.entries(fields)
+    .map(([key, value]) => `${key}="${encodeMetaValue(value)}"`)
+    .join(' ')
+  return `<!-- ${meta} -->`
 }
 
 function emptyDocument() {
@@ -131,6 +157,7 @@ function parseMemoryLine(line = '') {
     timestamp: Number(meta.timestamp || 0),
     date: meta.date || '',
     groupId: meta.group || null,
+    key: meta.key || '',
     tags: meta.tags ? meta.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
     content
   }
@@ -171,6 +198,7 @@ function shouldArchive(memory) {
 
   // 过时清理策略：短期情绪、含相对时间的旧事件、低重要性旧事实不直接删除，
   // 而是移入 Archive，便于人工回看，同时不再进入默认对话注入。
+  if (shouldSkipMemory(memory)) return true
   if (memory.memoryType === 'emotional_memory' && memory.importance <= 6 && ageDays > 30) return true
   if (memory.memoryType === 'event' && ageDays > 60 && /今天|明天|后天|今晚|下周|这周|周[一二三四五六日天]/.test(content)) return true
   if (memory.importance <= 3 && ageDays > 90) return true
@@ -220,11 +248,11 @@ export class UserMemory {
 
   static _isDuplicateMemory(candidate, existingMemories = []) {
     if (!candidate || !candidate.content) return true
-    const next = normalizeText(candidate.content)
+    const next = memoryDedupeKey(candidate)
     if (!next) return true
     return existingMemories.some(m => {
       if (!m || m.memoryType !== candidate.memoryType) return false
-      const old = normalizeText(m.content)
+      const old = memoryDedupeKey(m)
       if (!old) return false
       return old === next || old.includes(next) || next.includes(old)
     })
@@ -260,7 +288,7 @@ export class UserMemory {
       }
     }
 
-    // 同类型内容做包含式去重，避免“喜欢原神”和“用户偏好：喜欢原神”反复占位。
+    // 同类型内容按核心语义做去重，避免同一事实用不同表述反复占位。
     const unique = []
     for (const memory of active.sort((a, b) => scoreMemory(b) - scoreMemory(a))) {
       if (!this._isDuplicateMemory(memory, unique)) {
@@ -291,96 +319,11 @@ export class UserMemory {
     await writeMemoryFile(scope, id, sections)
   }
 
-  // 自动提取规则使用轻量正则策略：
-  // 普通聊天中出现“我叫/我喜欢/我讨厌/我最近很焦虑/请记住”等稳定信息时，
-  // 会先生成候选记忆；真正写入前仍会经过去重、冷却和 Markdown compact。
+  // 记忆提取交给模型通过 save_memory 工具判断。
+  // 这里保留空实现是为了兼容旧调用路径，但不再用代码正则硬判用户意图，
+  // 避免把提问、未确认信息或用户群名片误写成长期记忆。
   static _extractMemoriesFromUserMessage(text = '') {
-    const source = String(text || '').trim()
-    if (!source) return []
-    if (source.startsWith('#')) return []
-    if (source.length < 6 || source.length > 220) return []
-
-    const pushUnique = (arr, item) => {
-      if (!item || !item.content) return
-      const key = `${item.memoryType}:${normalizeText(item.content)}`
-      if (!arr.some(x => `${x.memoryType}:${normalizeText(x.content)}` === key)) {
-        arr.push(item)
-      }
-    }
-
-    const result = []
-    let m
-
-    m = source.match(/(?:我叫|我是|本人是|我现在是)([^，。！？\n]{1,24})/)
-    if (m?.[1]) {
-      pushUnique(result, {
-        memoryType: 'user_profile',
-        content: `用户自述身份：${m[1].trim()}`,
-        importance: 6,
-        tags: ['身份']
-      })
-    }
-
-    m = source.match(/(?:我在|我住在|我来自|来自)([^，。！？\n]{1,24})/)
-    if (m?.[1]) {
-      pushUnique(result, {
-        memoryType: 'user_profile',
-        content: `用户所在地：${m[1].trim()}`,
-        importance: 5,
-        tags: ['地区']
-      })
-    }
-
-    m = source.match(/(?:我喜欢|我最喜欢|我爱|我偏好)([^，。！？\n]{1,30})/)
-    if (m?.[1]) {
-      pushUnique(result, {
-        memoryType: 'preference',
-        content: `用户偏好：喜欢${m[1].trim()}`,
-        importance: 5,
-        tags: ['喜欢']
-      })
-    }
-
-    m = source.match(/(?:我讨厌|我不喜欢)([^，。！？\n]{1,30})/)
-    if (m?.[1]) {
-      pushUnique(result, {
-        memoryType: 'preference',
-        content: `用户偏好：不喜欢${m[1].trim()}`,
-        importance: 5,
-        tags: ['不喜欢']
-      })
-    }
-
-    m = source.match(/我(?:今天|现在|最近)?(?:真的|有点|挺|很|太)?(开心|高兴|兴奋|难过|伤心|生气|烦|焦虑|崩溃|抑郁|委屈|紧张)/)
-    if (m?.[1]) {
-      pushUnique(result, {
-        memoryType: 'emotional_memory',
-        content: `用户当前情绪：${m[1].trim()}`,
-        importance: 6,
-        tags: ['情绪']
-      })
-    }
-
-    if (/(明天|后天|今晚|下周|周[一二三四五六日天]|\d{1,2}[点时分])/.test(source)
-      && /(提醒|记得|要|约|安排|考试|面试|开会|上课|打卡|ddl|截止)/i.test(source)) {
-      pushUnique(result, {
-        memoryType: 'event',
-        content: `用户提到待办/时间安排：${clip(source, 80)}`,
-        importance: 7,
-        tags: ['待办', '时间']
-      })
-    }
-
-    if (/(请记住|记一下|记住这件事|别忘了)/.test(source)) {
-      pushUnique(result, {
-        memoryType: 'event',
-        content: `用户要求记住：${clip(source, 80)}`,
-        importance: 8,
-        tags: ['用户要求']
-      })
-    }
-
-    return result.slice(0, 2)
+    return []
   }
 
   static async saveMemory(memory) {
@@ -389,6 +332,9 @@ export class UserMemory {
       const targetId = scope === 'group' ? memory.groupId : memory.userId
       if (!targetId) {
         return { success: false, message: '缺少记忆目标ID' }
+      }
+      if (shouldSkipMemory(memory)) {
+        return { success: true, message: '记忆内容为空，已跳过' }
       }
 
       return await withMemoryWriteLock(scope, targetId, async () => {
@@ -406,6 +352,7 @@ export class UserMemory {
           timestamp: memory.timestamp || Date.now(),
           date: memory.date || nowText(),
           importance: Math.min(10, Math.max(1, Number(memory.importance || 1))),
+          key: memoryDedupeKey(memory),
           tags: Array.isArray(memory.tags) ? memory.tags : []
         }
 
@@ -647,7 +594,7 @@ export class UserMemory {
     await buildBlock('user', userId, '当前用户长期记忆')
 
     if (!blocks.length) return ''
-    const prompt = `【长期记忆摘要，仅供本轮参考】\n${blocks.join('\n')}\n使用原则：优先相信当前用户消息；记忆与当前消息或角色设定冲突时忽略记忆；不要主动提及“我记得/根据记忆/长期记忆”等来源；新的长期有效信息可用 save_memory 保存，避免保存短期闲聊。`
+    const prompt = `【长期记忆摘要，仅供本轮参考】\n${blocks.join('\n')}\n使用原则：优先相信当前用户消息；记忆与当前消息或角色设定冲突时忽略记忆；不要主动提及“我记得/根据记忆/长期记忆”等来源；新的长期有效信息可用 save_memory 保存，保存前必须区分当前消息、引用消息、群聊历史和不同说话人，避免保存短期闲聊或错误归因。`
     return prompt.length > maxChars ? `${prompt.slice(0, maxChars)}\n[记忆摘要已截断]` : prompt
   }
 
