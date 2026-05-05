@@ -24,6 +24,8 @@ const emotionMapping = {
 export class EmojiLikeTool extends AbstractTool {
     name = 'emojiLike'
 
+    skipModelResponse = true
+
     parameters = {
         properties: {
             emotion: {
@@ -68,12 +70,12 @@ export class EmojiLikeTool extends AbstractTool {
                 return 'Error: This bot adapter does not support emoji reactions. 告知用户切换到 https://github.com/AIGC-Yunzai/TRSS-Yunzai-NapC'
             }
 
-            return `Successfully reacted with ${emotion} emotion (emoji ID: ${emojiId}).\n\nIMPORTANT: The emoji reaction has already been added to the message. Do NOT describe or repeat this action in your response. If no extra description needed, just reply <EMPTY> at the next turn.`
+            return `Successfully reacted with ${emotion} emotion (emoji ID: ${emojiId}).`
         } catch (err) {
             logger.error('[EmojiLikeTool] Error:', err)
             return `Error: Failed to react with emoji: ${err.message || err.stack || String(err)}`
         }
     }
 
-    description = 'React to a message with an emoji by specifying an emotion type. The tool will randomly select an appropriate emoji from the emotion category. Automatically targets the referenced/replied message if available. Available emotions: happy, proud, shy, sad, conflicted, angry, surprised, confused, pleading, scared, awkward, speechless, disgusted, bored, like, love. Use this tool when you want to express emotions through emoji reactions instead of or in addition to text responses.'
+    description = 'React to a message with an emoji. Automatically targets the referenced message if available.'
 }

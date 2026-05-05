@@ -909,6 +909,7 @@ class Core {
               toolCalls: pendingToolCalls
             }]
             let previousMessageId = msg.id
+            let shouldSkipModelResponse = true
 
             for (const toolCall of pendingToolCalls) {
               let name = toolCall.function.name
@@ -931,9 +932,10 @@ class Core {
               }
 
               let functionResult = ''
+              let toolEntry = fullFuncMap[name.trim()]
               try {
-                if (fullFuncMap[name.trim()]) {
-                  functionResult = await fullFuncMap[name.trim()].exec.bind(this)(Object.assign({
+                if (toolEntry) {
+                  functionResult = await toolEntry.exec.bind(this)(Object.assign({
                     isAdmin,
                     sender
                   }, args), e)
@@ -946,6 +948,8 @@ class Core {
                 functionResult = `Error executing function ${name}: ${err.message}`
                 logger.error(functionResult)
               }
+              shouldSkipModelResponse = shouldSkipModelResponse &&
+                !!toolEntry?.tool?.shouldSkipModelResponse?.()
 
               const toolMessageId = crypto.randomUUID()
               toolMessages.push({
@@ -962,6 +966,26 @@ class Core {
 
             option.parentMessageId = msg.id
             option.appendMessages = toolMessages
+
+            if (shouldSkipModelResponse) {
+              const finalMessage = {
+                role: 'assistant',
+                id: crypto.randomUUID(),
+                text: '<EMPTY>',
+                originalContent: '<EMPTY>',
+                parentMessageId: previousMessageId,
+                conversationId: msg.conversationId,
+                functionCall: undefined,
+                toolCalls: undefined,
+                conversation: msg.conversation || []
+              }
+              await Promise.all([
+                ...toolMessages.map(message => upsertMessage(message)),
+                upsertMessage(finalMessage)
+              ])
+              msg = finalMessage
+              break
+            }
 
             // 拿到工具结果后重置 tool_choice 参数，允许大模型输出自然语言回答，防止死循环无限调用工具
             if (option.completionParams && option.completionParams.tool_choice === "required") {

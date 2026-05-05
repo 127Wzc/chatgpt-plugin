@@ -463,6 +463,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         }
       }
       let /** @type {FunctionResponse[]} **/ fcResults = []
+      let shouldSkipModelResponse = true
       for (let fc of functionCall) {
         logger.info(`[Chatgpt][Gemini] execution function: ${JSON.stringify(fc)}`)
         const funcName = fc.name
@@ -512,7 +513,38 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
             }
           }
         }
+        shouldSkipModelResponse = shouldSkipModelResponse &&
+          !!chosenTool?.shouldSkipModelResponse?.()
         fcResults.push(functionResponse)
+      }
+      if (shouldSkipModelResponse) {
+        await this.upsertMessage(getMessageForSave(thisMessage))
+        responseContent = handleSearchResponse(responseContent).responseContent
+        const respMessage = Object.assign(responseContent, {
+          id: idModel,
+          parentMessageId: idThis
+        })
+        await this.upsertMessage(respMessage)
+        const functionResponseMessageId = crypto.randomUUID()
+        const finalMessageId = crypto.randomUUID()
+        await this.upsertMessage({
+          role: 'user',
+          parts: fcResults.map(functionResponse => ({ functionResponse })),
+          id: functionResponseMessageId,
+          parentMessageId: idModel
+        })
+        await this.upsertMessage({
+          role: 'model',
+          parts: [{ text: '<EMPTY>' }],
+          id: finalMessageId,
+          parentMessageId: functionResponseMessageId
+        })
+        return {
+          text: '<EMPTY>',
+          conversationId: '',
+          parentMessageId: functionResponseMessageId,
+          id: finalMessageId
+        }
       }
       let responseOpt = _.cloneDeep(opt)
       responseOpt.parentMessageId = idModel

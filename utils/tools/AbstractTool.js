@@ -5,7 +5,14 @@ export class AbstractTool {
 
   description = ''
 
+  /** Skip the second model pass when the tool action is already user-visible. */
+  skipModelResponse = false
+
   func = async function () {}
+
+  shouldSkipModelResponse () {
+    return this.skipModelResponse
+  }
 
   function () {
     if (!this.parameters.type) {
