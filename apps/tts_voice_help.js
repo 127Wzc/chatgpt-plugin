@@ -2,7 +2,8 @@ import plugin from '../../../lib/plugins/plugin.js';
 import common from '../../../lib/common/common.js';
 import { Config } from '../utils/config.js'
 import {
-    getUserReplySetting
+    getUserReplySetting,
+    parseSourceImg,
 } from '../utils/common.js'
 import {
     get_matce_cn_speaker,
@@ -15,8 +16,13 @@ import path from 'path'
 import fs from 'fs'
 import fetch from 'node-fetch'
 import cfg from '../../../lib/config/config.js'
-import { getGeminiModelsByFetch } from '../utils/paimonFuction.js'
+import {
+    getGeminiModelsByFetch,
+    recognitionResultsByGemini,
+} from '../utils/paimonFuction.js'
 // import { ConversationManager } from '../model/conversation.js'
+import sfApi from '../utils/tts/siliconflow.js';
+import { getOnebotFileOrMediaUrl } from '../utils/paimonFuction.js';
 
 const paimonChuoYiChouSavePicDirectory = `${process.cwd()}/data/autoEmoticons/PaimonChuoYiChouPictures/savePics`
 const sleep_pai = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
@@ -138,6 +144,16 @@ export class voicechangehelp extends plugin {
                     fnc: 'delete_redis_all_gemini_msg',
                     permission: 'master'
                 },
+                {
+                    reg: /^#gpt偷(图|表情包?)$/i,
+                    fnc: 'save_EmojiImg',
+                    permission: 'master'
+                },
+                {
+                    reg: /^#gptsf语音模型(创建|删除|列表|上传|新增)$/i,
+                    fnc: 'handleSfVoiceManage',
+                    permission: 'master'
+                }
             ]
         })
         this.task = [
@@ -150,6 +166,376 @@ export class voicechangehelp extends plugin {
         ]
     }
 
+    /** ^#gptsf语音模型(创建|删除|列表)$ */
+    async handleSfVoiceManage(e) {
+        /** make 列表 */
+        async function buildVoiceListForwardMsg(e, localApi, title) {
+            let msgArr = [title];
+            let currIdx = Config.siliconflow_Voice_Current_Index || 0;
+            localApi.forEach((v, idx) => {
+                let isCurr = (currIdx === idx + 1) ? ' 【当前使用】' : '';
+                msgArr.push(`[${idx + 1}] 备注名: ${v.remark || '未命名'}${isCurr}\nID: ${v.siliconflow_Voice_ReferenceId}`);
+            });
+            msgArr.push("可用指令：\n #gptsf语音模型(创建|删除|列表)");
+            return await common.makeForwardMsg(e, msgArr, e.msg);
+        }
+        // 1. 获取配置中的 API Key
+        const apiKey = Config.siliconflow_Voice_ApiKey;
+        if (!apiKey) {
+            return await e.reply("请先在锅巴面板中配置 siliconflow_Voice_ApiKey", true);
+        }
+
+        const action = e.msg.replace(/#gptsf语音模型/i, '').trim();
+
+        // ======= 【列表查询 / 同步 / 选择】 =======
+        if (action === '列表') {
+            await e.reply("正在获取云端列表并同步到本地配置，请稍候...", true);
+            const res = await sfApi.listVoices(apiKey);
+
+            let localApi = [...(Config.siliconflow_VoiceApi || [])];
+            let addedCount = 0;
+            let hasChanges = false;
+            if (!res.error && res.result) {
+                const cloudIdSet = new Set(res.result.map(v => v.uri));
+                res.result.forEach(v => {
+                    const exists = localApi.find(item => item.siliconflow_Voice_ReferenceId === v.uri);
+                    if (exists) {
+                        // 如果之前标记了“云端不存在”，现在云端又出现了，则移除标记
+                        if (exists.remark && exists.remark.endsWith('(云端不存在)')) {
+                            exists.remark = exists.remark.slice(0, -'(云端不存在)'.length).trim();
+                            hasChanges = true;
+                        }
+                        // 更新 model 和 text（remark 保持已处理的结果）
+                        if (exists.siliconflow_Voice_Model !== v.model || exists.siliconflow_Voice_ReferenceText !== v.text) {
+                            exists.siliconflow_Voice_Model = v.model;
+                            exists.siliconflow_Voice_ReferenceText = v.text;
+                            hasChanges = true;
+                        }
+                    } else {
+                        // 不存在则新增
+                        localApi.push({
+                            siliconflow_Voice_Model: v.model,
+                            siliconflow_Voice_ReferenceId: v.uri,
+                            siliconflow_Voice_ReferenceText: v.text,
+                            remark: v.customName
+                        });
+                        addedCount++;
+                        hasChanges = true;
+                    }
+                });
+                // 标记本地有但云端不存在的音色
+                for (let item of localApi) {
+                    if (!cloudIdSet.has(item.siliconflow_Voice_ReferenceId)) {
+                        let base = item.remark || '未命名';
+                        if (!base.endsWith('(云端不存在)')) {
+                            item.remark = base + '(云端不存在)';
+                            hasChanges = true;
+                        }
+                    }
+                }
+            }
+            if (hasChanges) {
+                Config.siliconflow_VoiceApi = localApi;
+            }
+
+            if (localApi.length === 0) {
+                return await e.reply("当前本地配置及账号下均无自定义音色。\n(提示: 使用自定义音色前需在SiliconFlow官网完成实名认证)\n可用指令：#gptsf语音模型(创建|删除|列表)", true);
+            }
+
+            let titleText = `同步完成 (新增 ${addedCount} 个)\n当前共有 ${localApi.length} 个本地音色配置`;
+            let forwardMsg = await buildVoiceListForwardMsg(e, localApi, titleText);
+            await e.reply(forwardMsg);
+
+            await e.reply(`请在60秒内回复【序号】切换发音人 (发送 0 取消)`, true, { recallMsg: 59 });
+
+            const e_index = await this.awaitContext();
+            if (!e_index || !e_index.msg || ['0', '退出', '取消'].includes(e_index.msg.trim())) {
+                return await e.reply('[SF音色选择] 操作已取消。', true);
+            }
+
+            const selIdx = parseInt(e_index.msg.trim());
+            if (isNaN(selIdx)) {
+                return await e.reply('输入的序号无效，操作取消。', true);
+            }
+            if (selIdx < 1 || selIdx > localApi.length) {
+                return await e.reply('序号超出范围，操作取消。', true);
+            }
+
+            Config.siliconflow_Voice_Current_Index = selIdx;
+            return await e.reply(`切换成功！当前正在使用发音人: [${selIdx}] ${localApi[selIdx - 1].remark}`, true);
+        }
+
+        // ======= 【删除流程】 =======
+        if (action === '删除') {
+            // 直接读取本地配置作为删除列表的依据
+            let localApi = [...(Config.siliconflow_VoiceApi || [])];
+
+            if (localApi.length === 0) {
+                return await e.reply("本地配置中暂无自定义音色，无法执行删除。", true);
+            }
+
+            let titleText = `【音色删除】当前共有 ${localApi.length} 个本地音色配置`;
+            let forwardMsg = await buildVoiceListForwardMsg(e, localApi, titleText);
+            await e.reply(forwardMsg);
+
+            await e.reply(`请在60秒内回复您要删除的音色【序号】（发送 0 或 退出 取消）`, true, { recallMsg: 59 });
+
+            const e_index = await this.awaitContext();
+            if (!e_index || !e_index.msg || ['0', '退出', '取消'].includes(e_index.msg.trim())) {
+                return await e.reply('[SF音色删除] 操作已取消。', true);
+            }
+
+            const idx = parseInt(e_index.msg.trim()) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= localApi.length) {
+                return await e.reply('输入的序号无效，操作取消。', true);
+            }
+
+            const targetVoice = localApi[idx];
+
+            await e.reply(`确认要【从云端删除音色】 ${idx + 1}. [${targetVoice.remark || '未命名'}] 吗？（确认/取消）`, true, { recallMsg: 59 });
+            const e_Confir = await this.awaitContext();
+            if (!e_Confir || !e_Confir.msg || e_Confir.msg.trim() !== '确认') {
+                return await e.reply('[SF音色删除] 操作已取消。', true);
+            }
+
+            await e.reply(`正在尝试从云端删除音色 [${targetVoice.remark || '未命名'}] ...`, true);
+
+            let cloudDeleteSuccess = false;
+            let cloudErrorMsg = "";
+            try {
+                const delRes = await sfApi.deleteVoice(apiKey, targetVoice.siliconflow_Voice_ReferenceId);
+
+                // 综合判断 SiliconFlow API 的返回是否包含错误特征
+                if (delRes && delRes.error) {
+                    cloudErrorMsg = typeof delRes.error === 'string' ? delRes.error : (delRes.error.message || JSON.stringify(delRes.error));
+                } else if (delRes && delRes.status && delRes.status >= 400) {
+                    cloudErrorMsg = delRes.message || `HTTP 错误码: ${delRes.status}`;
+                } else if (delRes && typeof delRes.code !== 'undefined' && delRes.code !== 0 && delRes.code !== 20000 && delRes.code !== 200) {
+                    cloudErrorMsg = delRes.message || `错误码: ${delRes.code}`;
+                } else if (delRes && delRes.message && !delRes.code && !delRes.status && !delRes.id && !delRes.uri) {
+                    cloudErrorMsg = delRes.message;
+                } else {
+                    cloudDeleteSuccess = true;
+                }
+            } catch (err) {
+                cloudErrorMsg = err.message;
+            }
+
+            // 若云端删除未成功，询问是否要继续清理本地
+            if (!cloudDeleteSuccess) {
+                await e.reply(`⚠️ 云端删除未成功 (或记录已不存在)。\n原因提示：${cloudErrorMsg}\n\n是否仍然要强制删除本地的该音色配置？\n请在60秒内回复【是】或【否】(1/0)`, true);
+                const e_confirm = await this.awaitContext();
+                if (!e_confirm || !e_confirm.msg) {
+                    return await e.reply('[SF音色删除] 操作已取消，未删除本地配置。', true);
+                }
+                const confirmMsg = e_confirm.msg.trim();
+                if (!['是', '1', 'y', 'yes', '确认', '确定'].includes(confirmMsg.toLowerCase())) {
+                    return await e.reply('[SF音色删除] 操作已取消，未删除本地配置。', true);
+                }
+            }
+
+            // 执行本地删除
+            localApi.splice(idx, 1);
+            Config.siliconflow_VoiceApi = localApi;
+
+            let syncMsg = '';
+            let currIdx = Config.siliconflow_Voice_Current_Index || 0;
+
+            if (currIdx === idx + 1) {
+                // 删除的是正在使用的发音人，将序号重置为 0 (关闭状态)
+                Config.siliconflow_Voice_Current_Index = 0;
+                syncMsg = '\n本地同步：因删除了当前发音人，已自动关闭SF转语音。';
+            } else if (currIdx > idx + 1) {
+                // 删除了当前使用之前的项，当前序号减一，防止数组错位导致发音人改变
+                Config.siliconflow_Voice_Current_Index = currIdx - 1;
+                syncMsg = '\n本地同步：已移除本地配置，并自动更正当前发音人序号。';
+            } else {
+                syncMsg = '\n本地同步：已移除本地配置。';
+            }
+
+            return await e.reply(`✅ 删除操作完成。${syncMsg}\n请通过 #gptsf语音模型列表 检查当前配置。`, true);
+        }
+
+        // ======= 【创建/上传流程】 =======
+        if (['上传', '创建', '新增'].includes(action)) {
+            await e.reply("【SF音色创建指引】\n(注: 1. 此功能需要您的SF账号已实名认证；2. 音频时长建议8～10秒)\n\n请在120秒内发送新音色的【名称】(只能包含字母、数字、_、-，且不超过64字符，发送0取消)：", true);
+
+            // 步骤 1：获取名称
+            const e_name = await this.awaitContext();
+            if (!e_name || !e_name.msg || e_name.msg.trim() === '0') return await e.reply('操作已取消', true);
+            const customName = e_name.msg.trim();
+            if (!(/^[A-Za-z0-9_-]{1,64}$/.test(customName))) {
+                return await e.reply("操作已取消: 【名称】(只能包含字母、数字、_、-，且不超过64字符)", true);
+            }
+
+            // 步骤 2：获取使用模型
+            await e.reply(`音色名称记录为: "${customName}"\n\n请选择语音模型：\n1. FunAudioLLM/CosyVoice2-0.5B （推荐）\n2. fnlp/MOSS-TTSD-v0.5\n或直接输入完整模型名称（发送 0 取消）：`, true);
+            const e_model = await this.awaitContext();
+            if (!e_model || !e_model.msg || e_model.msg.trim() === '0') return await e.reply('操作已取消', true);
+            let selectedModel = '';
+            const modelInput = e_model.msg.trim();
+            if (modelInput === '1') {
+                selectedModel = "FunAudioLLM/CosyVoice2-0.5B";
+            } else if (modelInput === '2') {
+                selectedModel = "fnlp/MOSS-TTSD-v0.5";
+            } else {
+                selectedModel = e_model.msg.trim();
+                if (!selectedModel) return await e.reply('操作已取消', true);
+            }
+
+            // 步骤 3：获取参考文本
+            await e.reply(`使用模型: "${selectedModel}"\n\n请在120秒内发送该【参考文本】(音频对应的文字内容)(发送0取消)：`, true);
+            const e_text = await this.awaitContext();
+            if (!e_text || !e_text.msg || e_text.msg.trim() === '0') return await e.reply('操作已取消');
+            const referenceText = e_text.msg.trim();
+
+            // 步骤 4：获取语音/音频文件
+            await e.reply(`参考文本已记录。\n\n请在120秒内发送一段【语音】或【音频文件】(建议8-10秒，无杂音，发送0取消)：`, true);
+            const e_audio = await this.awaitContext();
+            if (!e_audio || (e_audio.msg && e_audio.msg.trim() === '0')) return await e.reply('操作已取消', true);
+
+            // 解析 Yunzai 消息中的音频 URL
+            let audioUrl = '';
+            for (let msg of e_audio.message) {
+                if (msg.type === 'record' || msg.type === 'audio' || msg.type === 'file') {
+                    audioUrl = await getOnebotFileOrMediaUrl(e_audio, msg);
+                    if (audioUrl) break;
+                }
+            }
+            if (!audioUrl) {
+                return await e.reply('未检测到有效的语音/音频内容，操作取消。', true);
+            }
+
+            await e.reply('正在获取并转换音频，请稍候...', true);
+            let audioBase64 = '';
+            try {
+                if (typeof audioUrl === 'string' && audioUrl.startsWith('base64://')) {
+                    // 处理部分适配器直接返回的 base64 字符串
+                    audioBase64 = `data:audio/mpeg;base64,${audioUrl.replace('base64://', '')}`;
+                } else if (typeof audioUrl === 'string' && audioUrl.startsWith('data:audio/')) {
+                    audioBase64 = audioUrl;
+                } else if (typeof audioUrl === 'string' && audioUrl.startsWith('http')) {
+                    // 处理常规的 Http 链接
+                    const audioRes = await fetch(audioUrl);
+                    if (!audioRes.ok) {
+                        throw new Error(`HTTP请求失败，状态码: ${audioRes.status}`);
+                    }
+                    const buffer = await audioRes.buffer();
+                    audioBase64 = `data:audio/mpeg;base64,${buffer.toString('base64')}`;
+                } else {
+                    // 适配有些适配器返回的是本地绝对路径或 file:// 协议
+                    let localPath = audioUrl;
+                    if (localPath.startsWith('file://')) {
+                        const urlModule = await import('node:url');
+                        localPath = urlModule.fileURLToPath(localPath);
+                    }
+                    const fsModule = await import('node:fs');
+                    if (fsModule.existsSync(localPath)) {
+                        const buffer = fsModule.readFileSync(localPath);
+                        audioBase64 = `data:audio/mpeg;base64,${buffer.toString('base64')}`;
+                    } else {
+                        throw new Error(`无法识别的音频URL或找不到本地文件: ${audioUrl}`);
+                    }
+                }
+            } catch (err) {
+                return await e.reply(`音频获取/转换失败：${err.message}`, true);
+            }
+
+            // 步骤 5：发起API请求（使用用户选择的模型）
+            await e.reply(`资料收集完毕，正在向 SiliconFlow 提交...\n模型: ${selectedModel}`, true);
+
+            try {
+                const result = await sfApi.uploadVoice(apiKey, selectedModel, customName, audioBase64, referenceText);
+                if (result.uri) {
+                    // 同步到本地配置并设定为当前发音人
+                    let localApi = [...(Config.siliconflow_VoiceApi || [])];
+                    localApi.push({
+                        siliconflow_Voice_Model: result.model || selectedModel,
+                        siliconflow_Voice_ReferenceId: result.uri,
+                        siliconflow_Voice_ReferenceText: result.text || referenceText,
+                        remark: result.customName || customName,
+                    });
+                    Config.siliconflow_VoiceApi = localApi;
+                    Config.siliconflow_Voice_Current_Index = localApi.length;
+
+                    await e.reply(`🎉 创建成功！\n\n音色名称: ${customName}\n模型: ${selectedModel}\n音色ID: \n${result.uri}\n\n✅ 已自动同步到本地配置，并切换当前发音人为: ${customName} (序号: ${localApi.length})\n可用指令：#gptsf语音模型列表`, true);
+                } else {
+                    await e.reply(`创建失败：${JSON.stringify(result)}`, true);
+                }
+            } catch (err) {
+                await e.reply(`请求发生错误：${err.message}`, true);
+            }
+        }
+    }
+
+    /** /^#gpt(偷图|偷表情包?)$/i */
+    async save_EmojiImg(e) {
+        await parseSourceImg(e);
+        if (!e.img || !e.img.length) {
+            e.reply(`请引用图片或将图片一起发送后重试`, true);
+            return true;
+        }
+
+        const emotions = [
+            'happy', 'sad', 'angry', 'love', 'confused', 'tired',
+            'excited', 'scared', 'laugh', 'cry', 'cute', 'shy',
+            'thumbsup', 'thinking', 'surprised', 'bored', 'cool',
+            'sick', 'sleep', 'eat'
+        ];
+
+        // e.reply('正在识别表情包并分析情感中...', true);
+        const systemPrompt = `分析这个表情包或图片的情感，从以下分类中选出一个最合适的分类：\n${emotions.join(', ')}\n\n请严格按以下格式回复：\n[分类]: 简短分析（10个字以内）\n例如：\nhappy: 看起来非常开心`;
+        let aiText = await recognitionResultsByGemini(e, (e.img || []), [], systemPrompt);
+
+        let emotion = '';
+        let analysis = '';
+
+        if (aiText && !aiText.includes('识别出错：')) {
+            // 尝试提取分类和分析
+            const match = aiText.match(/^([a-zA-Z]+)[:：]\s*(.*)/);
+            if (match) {
+                emotion = match[1].toLowerCase();
+                analysis = match[2].trim();
+            } else {
+                // 如果格式不完全匹配，尝试在文本中寻找关键字
+                const foundEmotion = emotions.find(em => aiText.toLowerCase().includes(em));
+                if (foundEmotion) {
+                    emotion = foundEmotion;
+                    analysis = aiText.replace(new RegExp(foundEmotion, 'i'), '').trim();
+                }
+            }
+        }
+
+        if (!emotions.includes(emotion)) {
+            e.reply('未能确定该表情包类别\nError: ' + aiText, true);
+            return true;
+        }
+
+        const directory = path.join(process.cwd(), 'data', 'chatgpt', 'sendEmojiTool', emotion);
+
+        try {
+            const imgResponse = await fetch(e.img[0]);
+            if (imgResponse.ok) {
+                let imgSize = (imgResponse.headers.get('size') || imgResponse.headers.get('content-length')) / 1024 / 1024;
+                if (imgSize > 10) {
+                    e.reply(`这图片超过10MB了，还是不要保存了吧QAQ`, true);
+                    return true;
+                }
+                const imageUrl = await reNameAndSavePic(imgResponse, e.img[0], directory);
+                if (imageUrl) {
+                    e.reply(`偷图成功！\n已将表情包储存在 [${emotion}] 文件夹中~\nAI简评: ${analysis}`, true);
+                } else {
+                    e.reply(`保存表情包失败了呢QAQ`, true);
+                }
+            } else {
+                e.reply('图片下载失败了呢QAQ', true);
+            }
+        } catch (err) {
+            logger.error('偷图失败：', err);
+            e.reply('偷图过程中发生错误：' + err.message, true);
+        }
+        return true;
+    }
 
     /** ^#tts(语音)?(替换)?帮助 */
     async voicechangehelp(e) {
@@ -643,7 +1029,7 @@ ${userSetting.useTTS === true ? '当前语音模式为' + Config.ttsMode : ''}`
 
     /** ^#派蒙戳(一戳)?(保存|添加)(图片|表情)$ */
     async paimon_chuo_save_img(e) {
-        e = await parseSourceImg(e)
+        await parseSourceImg(e)
         if (e.img) {
             const imgResponse = await fetch(e.img[0])
             if (imgResponse.ok) {
@@ -757,7 +1143,7 @@ ${userSetting.useTTS === true ? '当前语音模式为' + Config.ttsMode : ''}`
     }
 
     async searchFishVoices(e) {
-        if (Config.fishApiKey.length == 0) {
+        if (Config.getFishApiKey.length == 0) {
             e.reply("请先在锅巴中设置fish.audio的Api Key", true);
             return
         }
@@ -765,12 +1151,14 @@ ${userSetting.useTTS === true ? '当前语音模式为' + Config.ttsMode : ''}`
 
         const options = {
             method: 'GET',
-            headers: { Authorization: `Bearer ${Config.fishApiKey}` }
+            headers: { Authorization: `Bearer ${Config.getFishApiKey}` }
         };
+
+        const fish_base_url = Config.fish_base_url || "https://api.fish.audio"
 
         let optionMsg = "可用指令：#chatgpt设置全局vits语音角色"
         let msgArr = [`Fish发音人列表 ${keyword}：`];
-        await fetch(`https://api.fish.audio/model?tag=${encodeURIComponent(keyword)}`, options)
+        await fetch(`${fish_base_url}/model?tag=${encodeURIComponent(keyword)}`, options)
             .then(response => response.json())
             .then(response => {
                 for (let index = 0; index < response.total; index++) {
@@ -809,36 +1197,6 @@ ${userSetting.useTTS === true ? '当前语音模式为' + Config.ttsMode : ''}`
         return true;
     }
 
-}
-
-
-/**
- * @description: 处理消息中的图片：当消息引用了图片，则将对应图片放入e.img ，优先级==> e.source.img > e.img
- * @param {*} e
- * @return {*}处理过后的e
- */
-async function parseSourceImg(e) {
-    if (e.source) {
-        let reply;
-        if (e.isGroup) {
-            reply = (await e.group.getChatHistory(e.source.seq, 1)).pop()?.message;
-        } else {
-            reply = (await e.friend.getChatHistory(e.source.time, 1)).pop()?.message;
-        }
-        if (reply) {
-            for (const val of reply) {
-                if (val.type == "image") {
-                    e.img = [val.url];
-                    break;
-                }
-                if (val.type == "file") {
-                    e.reply("不支持消息中的文件，请以图片发送", true);
-                    return;
-                }
-            }
-        }
-    }
-    return e;
 }
 
 /** 下载好的图片重命名并存档在directory */

@@ -24,11 +24,10 @@ import { QueryStarRailTool } from '../utils/tools/QueryStarRailTool.js'
 import { WebsiteTool } from '../utils/tools/WebsiteTool.js'
 import { SendPictureTool } from '../utils/tools/SendPictureTool.js'
 import { SendVideoTool } from '../utils/tools/SendBilibiliTool.js'
-import { SearchVideoTool } from '../utils/tools/SearchBilibiliTool.js'
+import { BilibiliSearchVideoTool } from '../utils/tools/SearchBilibiliTool.js'
 import { SendAvatarTool } from '../utils/tools/SendAvatarTool.js'
 import { SerpImageTool } from '../utils/tools/SearchImageTool.js'
-import { SearchMusicTool } from '../utils/tools/SearchMusicTool.js'
-import { SendMusicTool } from '../utils/tools/SendMusicTool.js'
+import { SendNetEaseMusicTool } from '../utils/tools/SendNetEaseMusicTool.js'
 import { SendAudioMessageTool } from '../utils/tools/SendAudioMessageTool.js'
 import { SendMessageToSpecificGroupOrUserTool } from '../utils/tools/SendMessageToSpecificGroupOrUserTool.js'
 import { QueryGenshinTool } from '../utils/tools/QueryGenshinTool.js'
@@ -39,7 +38,7 @@ import { JinyanTool } from '../utils/tools/JinyanTool.js'
 import { KickOutTool } from '../utils/tools/KickOutTool.js'
 import { SetTitleTool } from '../utils/tools/SetTitleTool.js'
 import { SerpIkechan8370Tool } from '../utils/tools/SerpIkechan8370Tool.js'
-import { SerpTool } from '../utils/tools/SerpTool.js'
+import { azureSerpTool } from '../utils/tools/SerpTool.js'
 import common from '../../../lib/common/common.js'
 import { SendDiceTool } from '../utils/tools/SendDiceTool.js'
 import { EliMovieTool } from '../utils/tools/EliMovieTool.js'
@@ -74,6 +73,8 @@ import { MemoryTool } from '../utils/tools/MemoryTool.js'
 import { EmojiLikeTool } from '../utils/tools/EmojiLikeTool.js'
 import { ScheduleTaskTool } from '../utils/tools/ScheduleTaskTool.js'
 import { TTSAudioTool } from '../utils/tools/TTSAudioTool.js'
+import { SendQQMusicTool } from '../utils/tools/SendQQMusicTool.js'
+import { BaiduAISearchTool } from '../utils/tools/BaiduAiSearchTool.js'
 import { UserMemory } from '../utils/userMemory.js'
 
 export const roleMap = {
@@ -345,13 +346,14 @@ class Core {
           system: opt.system.claude,
           max_tokens: Config.claudeApiMaxToken
         }
-        option.system = mergeSystemPrompt(option.system, e, { replyTimestamps: conversation.replyTimestamps })
         if (opt.settings.enableGroupContext && e.isGroup) {
           let chats = await getChatHistoryGroup(e, Config.groupContextLength)
           const namePlaceholder = '[name]'
           const defaultBotName = 'GeminiPro'
           const groupContextTip = Config.groupContextTip
           let botName = e.isGroup ? (e.group.pickMember(getUin(e)).card || e.group.pickMember(getUin(e)).nickname) : e.bot.nickname
+
+          option.system = mergeSystemPrompt(option.system, e, { replyTimestamps: conversation.replyTimestamps })
 
           option.system = option.system.replaceAll(namePlaceholder, botName || defaultBotName) +
             ((opt.settings.enableGroupContext && e.group_id) ? groupContextTip : '')
@@ -406,45 +408,45 @@ class Core {
         key = keys[choiceIndex]
         logger.info(`使用API Key：${key}`)
       }
-    } else if (use === 'claude2') { // 使用接口 ##############################
-      let { conversationId } = conversation
-      let client = new ClaudeAIClient({
-        organizationId: Config.claudeAIOrganizationId,
-        sessionKey: Config.claudeAISessionKey,
-        debug: Config.debug,
-        proxy: Config.proxy
-      })
-      let toSummaryFileContent
-      try {
-        if (e.source) {
-          let msgs = e.isGroup ? await e.group.getChatHistory(e.source.seq, 1) : await e.friend.getChatHistory(e.source.time, 1)
-          let sourceMsg = msgs[0]
-          let fileMsgElem = sourceMsg.message.find(msg => msg.type === 'file')
-          if (fileMsgElem) {
-            toSummaryFileContent = await extractContentFromFile(fileMsgElem, e)
-          }
-        }
-      } catch (err) {
-        logger.warn('读取文件内容出错， 忽略文件内容', err)
-      }
+    // } else if (use === 'claude2') { // 使用接口 ##############################
+    //   let { conversationId } = conversation
+    //   let client = new ClaudeAIClient({
+    //     organizationId: Config.claudeAIOrganizationId,
+    //     sessionKey: Config.claudeAISessionKey,
+    //     debug: Config.debug,
+    //     proxy: Config.proxy
+    //   })
+    //   let toSummaryFileContent
+    //   try {
+    //     if (e.source) {
+    //       let msgs = e.isGroup ? await e.group.getChatHistory(e.source.seq, 1) : await e.friend.getChatHistory(e.source.time, 1)
+    //       let sourceMsg = msgs[0]
+    //       let fileMsgElem = sourceMsg.message.find(msg => msg.type === 'file')
+    //       if (fileMsgElem) {
+    //         toSummaryFileContent = await extractContentFromFile(fileMsgElem, e)
+    //       }
+    //     }
+    //   } catch (err) {
+    //     logger.warn('读取文件内容出错， 忽略文件内容', err)
+    //   }
 
-      let attachments = []
-      if (toSummaryFileContent?.content) {
-        attachments.push({
-          extracted_content: toSummaryFileContent.content,
-          file_name: toSummaryFileContent.name,
-          file_type: 'pdf',
-          file_size: 200312,
-          totalPages: 20
-        })
-        logger.info(toSummaryFileContent.content)
-      }
-      if (conversationId) {
-        return await client.sendMessage(prompt, conversationId, attachments)
-      } else {
-        let conv = await client.createConversation()
-        return await client.sendMessage(prompt, conv.uuid, attachments)
-      }
+    //   let attachments = []
+    //   if (toSummaryFileContent?.content) {
+    //     attachments.push({
+    //       extracted_content: toSummaryFileContent.content,
+    //       file_name: toSummaryFileContent.name,
+    //       file_type: 'pdf',
+    //       file_size: 200312,
+    //       totalPages: 20
+    //     })
+    //     logger.info(toSummaryFileContent.content)
+    //   }
+    //   if (conversationId) {
+    //     return await client.sendMessage(prompt, conversationId, attachments)
+    //   } else {
+    //     let conv = await client.createConversation()
+    //     return await client.sendMessage(prompt, conv.uuid, attachments)
+    //   }
     } else if (use === 'xh') { // 使用接口 ##############################
       const cacheOptions = {
         namespace: 'xh',
@@ -1064,63 +1066,39 @@ class Core {
  * @return {Promise<{systemAddition, funcMap: {}, promptAddition: string, fullFuncMap: {}}>}
  */
 async function collectTools(e) {
-  let serpTool, WebTool
-  switch (Config.serpSource) {
-    case 'geminiSearchTool': {
-      serpTool = new GeminiSearchTool()
-      break
-    }
-    case 'tavily_search': {
-      serpTool = new TavilyTool()
-      break
-    }
-    case 'misaka_WebSearchTool': {
-      serpTool = new Misaka_WebSearchTool()
-      break
-    }
-    case 'ikechan8370': {
-      serpTool = new SerpIkechan8370Tool() // 该工具使用的 url 不再提供服务
-      break
-    }
-    case 'azure': {
-      // if (!Config.azSerpKey) {
-      //   logger.warn('未配置bing搜索密钥，转为使用ikechan8370搜索源')
-      //   serpTool = new SerpIkechan8370Tool()
-      // } else {
-      serpTool = new SerpTool()
-      // }
-      break
-    }
-    default: {
-      serpTool = new Misaka_WebSearchTool()
-    }
+  /** 搜索/网络来源 总工具 */
+  const serpToolMap = {
+    'geminiSearchTool': GeminiSearchTool,
+    'tavily_search': TavilyTool,
+    'misaka_WebSearchTool': Misaka_WebSearchTool,
+    'ikechan8370': SerpIkechan8370Tool, // 该工具使用的 url 不再提供服务
+    'azure': azureSerpTool,
+    'local_WebsiteTool': WebsiteTool,
+    'tavily_WebsiteTool': TavilyExtractTool,
+    'Weather_Tool': WeatherTool,
+    'Send163_MusicTool': SendNetEaseMusicTool,
+    'SendQQ_MusicTool': SendQQMusicTool,
+    'BaiduAI_SearchTool': BaiduAISearchTool,
   }
-  // 若填写了 tavily Key 则使用 TavilyExtractTool
-  if (Config.tavilyKey)
-    WebTool = new TavilyExtractTool()
-  else
-    WebTool = new WebsiteTool()
+  /** 搜索/网络来源 */
+  let serpTools = Object.entries(serpToolMap)
+    .filter(([key]) => Config.serpSourceArr.includes(key))
+    .map(([_, ToolClass]) => new ToolClass());
 
   /** fullTools 包括了踢人等管理员用的工具 */
   let fullTools = [
     new EditCardTool(),
     new QueryStarRailTool(), // 星铁工具
-    WebTool,
     new JinyanTool(),
     new KickOutTool(),
-    new WeatherTool(),
     new SendPictureTool(),
     new SendVideoTool(),
     // new ImageCaptionTool(), // OCR 工具
-    new SearchVideoTool(),
+    new SerpImageTool_by_baidu(),
+    new BilibiliSearchVideoTool(),
     new SendAvatarTool(),
     // new SerpImageTool(), // 该工具使用的 url 不再提供服务
-    new SerpImageTool_by_baidu(),
-    new SearchMusicTool(),
-    new SendMusicTool(),
-    // new SerpIkechan8370Tool(),
-    // new SerpTool(),
-    serpTool,
+    ...serpTools, // 展开所有开启的搜索工具
     // new SendAudioMessageTool(), // 发送 TTS 生成的语音工具
     // new ProcessPictureTool(), // 图像预处理工具
     new APTool(),
@@ -1136,6 +1114,7 @@ async function collectTools(e) {
     new BlockUserTool(),
     // new RecognitionResultsByGeminiTool(),
   ]
+
   // todo 3.0再重构tool的插拔和管理
   let /** @type{AbstractTool[]} **/ tools = [ // Gemini 只有取 tools，不取 fullTools
     new SendAvatarTool(),
@@ -1144,97 +1123,52 @@ async function collectTools(e) {
     // new EditCardTool(),
     new QueryStarRailTool(), // 星铁工具
     new QueryGenshinTool(), // 原神工具
-    new SendMusicTool(),
-    new SearchMusicTool(),
     // new ProcessPictureTool(), // 图像预处理工具
-    WebTool,
     // new JinyanTool(),
     // new KickOutTool(),
-    new WeatherTool(),
     new SendPictureTool(),
     // new SendAudioMessageTool(), // 发送 TTS 生成的语音工具
     new APTool(),
     // new HandleMessageMsgTool(),
-    serpTool,
+    ...serpTools, // 展开所有开启的搜索工具
     new QueryUserinfoTool(), // 查看用户 e.sender 工具
     new GithubAPITool(),
     new BlockUserTool(),
     // new RecognitionResultsByGeminiTool(),
+    new SendVideoTool(),
   ]
 
-  if (!Config.disable_sendMessage_tool) {
-    tools.push(...[new SendMessageToSpecificGroupOrUserTool()])
-    fullTools.push(...[new SendMessageToSpecificGroupOrUserTool()])
-  }
+  /** 可选工具 */
+  const optionalTools = [
+    { condition: !Config.disable_sendMessage_tool, ToolClass: SendMessageToSpecificGroupOrUserTool },
+    { condition: Config.switch_atOtherUserTool, ToolClass: AtOtherUserTool },
+    { condition: Config.poke_userIDs, ToolClass: SendGroupPokeTool },
+    { condition: Config.agent_SandboxSwitch, ToolClass: SandboxJSTool },
+    { condition: Config.getPixivTool, ToolClass: GetPixivApiLoliconTool },
+    { condition: Config.switch_EmojiTool, ToolClass: EmojiTool },
+    { condition: Config.enableMemory, ToolClass: MemoryTool },
+    { condition: Config.enableEmojiLikeTool, ToolClass: EmojiLikeTool },
+    { condition: Config.mediaRecognitionGeminiTool, ToolClass: RecognitionResultsByGeminiTool },
+    { condition: Config.ScheduleTask_Tool, ToolClass: ScheduleTaskTool },
+    { condition: Config.TTSAudio_Tool, ToolClass: TTSAudioTool },
+  ];
 
-  if (Config.serpSource === "off") {
-    tools = tools.filter(tool => tool !== serpTool);
-    fullTools = fullTools.filter(tool => tool !== serpTool);
-  }
-
-  // if (Config.add_sf_image_edit) {
-  //   tools.push(...[new Sf_image_edit()])
-  //   fullTools.push(...[new Sf_image_edit()])
-  // }
-
-  if (Config.switch_atOtherUserTool) {
-    tools.push(...[new AtOtherUserTool()])
-    fullTools.push(...[new AtOtherUserTool()])
-  }
-
-  if (Config.poke_userIDs) {
-    tools.push(...[new SendGroupPokeTool()])
-    fullTools.push(...[new SendGroupPokeTool()])
-  }
-
-  if (Config.agent_SandboxSwitch) {
-    tools.push(...[new SandboxJSTool()])
-    fullTools.push(...[new SandboxJSTool()])
-  }
-
-  if (Config.getPixivTool) {
-    tools.push(...[new GetPixivApiLoliconTool()])
-    fullTools.push(...[new GetPixivApiLoliconTool()])
-  }
-
-  if (Config.switch_EmojiTool) {
-    tools.push(...[new EmojiTool()])
-    fullTools.push(...[new EmojiTool()])
-  }
-
-  if (Config.enableMemory) {
-    tools.push(new MemoryTool())
-    fullTools.push(new MemoryTool())
-  }
-
-  if (Config.enableEmojiLikeTool) {
-    tools.push(new EmojiLikeTool())
-    fullTools.push(new EmojiLikeTool())
-  }
-
-  if (Config.mediaRecognitionGeminiTool) {
-    tools.push(new RecognitionResultsByGeminiTool())
-    fullTools.push(new RecognitionResultsByGeminiTool())
-  }
-
-  if (Config.ScheduleTask_Tool) {
-    tools.push(new ScheduleTaskTool())
-    fullTools.push(new ScheduleTaskTool())
-  }
-
-  if (Config.TTSAudio_Tool) {
-    tools.push(new TTSAudioTool())
-    fullTools.push(new TTSAudioTool())
-  }
+  optionalTools.forEach(({ condition, ToolClass }) => {
+    if (condition) {
+      tools.push(new ToolClass())
+      fullTools.push(new ToolClass())
+    }
+  });
 
   let systemAddition = ''
   if (e.isGroup) {
     let botInfo = await e.bot?.pickMember?.(e.group_id, getUin(e)) || await e.bot?.getGroupMemberInfo?.(e.group_id, getUin(e))
     if (botInfo.role !== 'member') {
-      tools.push(...[new EditCardTool(), new JinyanTool(), new SetTitleTool()])
+      tools.push(new EditCardTool(), new JinyanTool(), new SetTitleTool())
       // 管理员才给这些工具
-      if (e.isMaster || e.sender.role == 'owner' || e.sender.role == 'admin')
-        tools.push(...[new KickOutTool(), new HandleMessageMsgTool()])
+      if (e.isMaster || e.sender.role === 'owner' || e.sender.role === 'admin') {
+        tools.push(new KickOutTool(), new HandleMessageMsgTool())
+      }
       // 用于撤回和加精的id
       if (e.source?.seq) {
         let source = (await e.group.getChatHistory(e.source?.seq, 1)).pop()
@@ -1244,6 +1178,7 @@ async function collectTools(e) {
       }
     }
   }
+
   let promptAddition = ''
   // let img = await parseSourceImg(e)
   if (e.img?.length > 0) {
@@ -1255,32 +1190,28 @@ async function collectTools(e) {
     if (isImgUrlValid) {
       promptAddition += `\nthe url of the picture(s) above: ${e.img.join(', ')}`;
     }
-
   } else {
     // tools.push(new SerpImageTool()) // 该工具使用的 url 不再提供服务
-    tools.push(new SerpImageTool_by_baidu())
-    tools.push(...[new SearchVideoTool(),
-    new SendVideoTool()])
+    if (Config.serpSourceArr.includes('SerpImageTool_Baidu')) {
+      tools.push(new SerpImageTool_by_baidu())
+    }
+    if (Config.serpSourceArr.includes('Bilibili_SearchVideoTool')) {
+      tools.push(new BilibiliSearchVideoTool())
+    }
   }
-  let funcMap = {}
-  let fullFuncMap = {}
-  tools.forEach(tool => {
-    funcMap[tool.name] = {
-      exec: tool.func,
-      function: tool.function(),
-      tool
-    }
-  })
-  fullTools.forEach(tool => {
-    fullFuncMap[tool.name] = {
-      exec: tool.func,
-      function: tool.function(),
-      tool
-    }
-  })
+
+  const buildFuncMap = (toolArray) => {
+    return Object.fromEntries(
+      toolArray.map(tool => [
+        tool.name,
+        { exec: tool.func, function: tool.function(), tool }
+      ])
+    )
+  }
+
   return {
-    funcMap,
-    fullFuncMap,
+    funcMap: buildFuncMap(tools),
+    fullFuncMap: buildFuncMap(fullTools),
     systemAddition,
     promptAddition
   }

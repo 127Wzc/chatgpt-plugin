@@ -478,46 +478,46 @@ export function supportGuoba() {
           label: 'claude 设定',
           component: 'InputTextArea'
         },
-        {
-          label: '以下为Claude2方式的配置',
-          component: 'Divider'
-        },
-        {
-          field: 'claudeAIOrganizationId',
-          label: 'claude2 OrganizationId',
-          bottomHelpMessage: 'claude.ai的OrganizationId',
-          component: 'Input'
-        },
-        {
-          field: 'claudeAISessionKey',
-          label: 'claude2 SessionKey',
-          bottomHelpMessage: 'claude.ai Cookie中的SessionKey',
-          component: 'Input'
-        },
-        {
-          field: 'claudeAIReverseProxy',
-          label: 'claude2 反代',
-          bottomHelpMessage: 'claude.ai 的反代。或许可以参考https://github.com/ikechan8370/sydney-ws-proxy/tree/claude.ai搭建',
-          component: 'Input'
-        },
-        {
-          field: 'claudeAIJA3',
-          label: 'claude2浏览器指纹',
-          bottomHelpMessage: 'claude.ai使用的浏览器TLS指纹，去https://scrapfly.io/web-scraping-tools/ja3-fingerprint或https://ja3.zone/check查看。如果用了反代就不用管',
-          component: 'Input'
-        },
-        {
-          field: 'claudeAIUA',
-          label: 'claude2浏览器UA',
-          bottomHelpMessage: 'claude.ai使用的浏览器UA，https://scrapfly.io/web-scraping-tools/http2-fingerprint或https://ja3.zone/check查看。如果用了反代就不用管',
-          component: 'Input'
-        },
-        {
-          field: 'claudeAITimeout',
-          label: 'claude2超时时间',
-          bottomHelpMessage: '等待响应的超时时间，单位为秒，默认为120。如果不使用反代而是使用代理可以适当调低。',
-          component: 'InputNumber'
-        },
+        // {
+        //   label: '以下为Claude2方式的配置',
+        //   component: 'Divider'
+        // },
+        // {
+        //   field: 'claudeAIOrganizationId',
+        //   label: 'claude2 OrganizationId',
+        //   bottomHelpMessage: 'claude.ai的OrganizationId',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'claudeAISessionKey',
+        //   label: 'claude2 SessionKey',
+        //   bottomHelpMessage: 'claude.ai Cookie中的SessionKey',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'claudeAIReverseProxy',
+        //   label: 'claude2 反代',
+        //   bottomHelpMessage: 'claude.ai 的反代。或许可以参考https://github.com/ikechan8370/sydney-ws-proxy/tree/claude.ai搭建',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'claudeAIJA3',
+        //   label: 'claude2浏览器指纹',
+        //   bottomHelpMessage: 'claude.ai使用的浏览器TLS指纹，去https://scrapfly.io/web-scraping-tools/ja3-fingerprint或https://ja3.zone/check查看。如果用了反代就不用管',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'claudeAIUA',
+        //   label: 'claude2浏览器UA',
+        //   bottomHelpMessage: 'claude.ai使用的浏览器UA，https://scrapfly.io/web-scraping-tools/http2-fingerprint或https://ja3.zone/check查看。如果用了反代就不用管',
+        //   component: 'Input'
+        // },
+        // {
+        //   field: 'claudeAITimeout',
+        //   label: 'claude2超时时间',
+        //   bottomHelpMessage: '等待响应的超时时间，单位为秒，默认为120。如果不使用反代而是使用代理可以适当调低。',
+        //   component: 'InputNumber'
+        // },
         {
           label: '以下为星火方式的配置',
           component: 'Divider'
@@ -694,36 +694,44 @@ export function supportGuoba() {
         {
           field: 'geminiModel',
           label: '模型',
-          bottomHelpMessage: '默认值：gemini-2.5-flash；推荐：gemini-exp-1206,gemini-2.0-flash-thinking-exp-01-21；可用模型每日自动更新，立即更新指令：#派蒙chatgpt立即执行每日自动任务',
+          bottomHelpMessage: '默认值：gemini-flash-latest；只能选择/填写1个模型；可用模型每日自动更新，立即更新指令：#派蒙chatgpt立即执行每日自动任务',
           component: 'Select',
           componentProps: {
+            mode: 'tags',
+            maxTagCount: 1,
             options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
           }
         },
         {
           field: 'gemini_fallbackModel',
           label: '失败回退模型',
-          bottomHelpMessage: '模型返回错误后改用这个备用模型尝试，默认值：gemini-2.5-flash；',
+          bottomHelpMessage: '模型返回错误后改用这个备用模型尝试，默认值：gemini-flash-lite-latest',
           component: 'Select',
           componentProps: {
+            mode: 'tags',
+            maxTagCount: 1,
             options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
           }
         },
         {
           field: 'gemini_vqa_model',
           label: 'gemini内容识别模型',
-          bottomHelpMessage: '用于#识图 #gpt翻[英|中|译] 智能模式Gemini内容识别和工具；支持图片和视频识别；默认值：gemini-2.5-flash',
+          bottomHelpMessage: '用于#识图 #gpt翻[英|中|译] 智能模式Gemini内容识别和工具；支持图片和视频识别；默认值：gemini-flash-lite-latest',
           component: 'Select',
           componentProps: {
+            mode: 'tags',
+            maxTagCount: 1,
             options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
           }
         },
         {
           field: 'geminiSearchModel',
           label: 'gemini搜索模型',
-          bottomHelpMessage: '用于智能模式(搜索工具)-搜索来源-Gemini原生搜索；默认值：gemini-2.5-flash',
+          bottomHelpMessage: '用于智能模式(搜索工具)-搜索来源-Gemini原生搜索；默认值：gemini-flash-lite-latest',
           component: 'Select',
           componentProps: {
+            mode: 'tags',
+            maxTagCount: 1,
             options: Config.get_geminiModels().map(s => { return { label: s, value: s } })
           }
         },
@@ -873,7 +881,7 @@ export function supportGuoba() {
         {
           field: 'azureTTSKey',
           label: 'Azure语音服务密钥',
-          component: 'Input'
+          component: 'InputPassword'
         },
         {
           field: 'azureTTSRegion',
@@ -982,22 +990,56 @@ export function supportGuoba() {
         {
           field: 'siliconflow_Voice_ApiKey',
           label: 'Api Key',
-          bottomHelpMessage: '参考 https://docs.siliconflow.cn/cn/userguide/capabilities/text-to-speech 获取key和自定义个人音色',
-          component: 'Input'
+          bottomHelpMessage: '参考 https://docs.siliconflow.cn/cn/userguide/capabilities/text-to-speech 获取key和自定义个人音色（需要实名认证）；呆毛注：自定义个人音色可能没法给其他人使用',
+          component: 'InputPassword'
         },
         {
-          field: 'siliconflow_Voice_Model',
-          label: '语音模型',
-          bottomHelpMessage: '推荐 FunAudioLLM/CosyVoice2-0.5B',
-          component: 'Input'
-        },
-        {
-          field: 'siliconflow_Voice_ReferenceId',
-          label: '发音人ID',
-          bottomHelpMessage: '推荐自己上传，CosyVoice2语音模型时可填面包大大生成的语音ID: 可莉: speech:keli:cm08sphf600du6l3t3szh0t16:bvteaayeqsrhnvkpfchr, 派蒙: speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj',
-          component: 'Input',
+          field: "siliconflow_VoiceApi",
+          label: "发音人",
+          bottomHelpMessage: "填写Api Key并实名认证后 自定义个人音色 可用指令: #gptsf语音模型(创建|删除|列表)",
+          component: "GSubForm",
           componentProps: {
-            placeholder: 'speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj',
+            multiple: true,
+            schemas: [
+              {
+                field: 'siliconflow_Voice_Model',
+                label: '语音模型',
+                bottomHelpMessage: '例如: FunAudioLLM/CosyVoice2-0.5B 或 fnlp/MOSS-TTSD-v0.5',
+                component: "Input",
+                required: true,
+              },
+              {
+                field: 'siliconflow_Voice_ReferenceId',
+                label: '发音人ID',
+                bottomHelpMessage: '系统音色如: FunAudioLLM/CosyVoice2-0.5B:alex。自建音色填入 uri (形如 speech:name:xxx:xxx)',
+                component: "Input",
+                required: true,
+              },
+              {
+                field: 'siliconflow_Voice_ReferenceText',
+                label: '参考文本',
+                component: "InputTextArea",
+                componentProps: {
+                  readonly: true,
+                }
+              },
+              {
+                field: 'remark',
+                label: '备注名',
+                component: "Input",
+              },
+            ],
+          },
+        },
+        {
+          field: 'siliconflow_Voice_Current_Index',
+          label: '当前使用的发音人',
+          bottomHelpMessage: '选择使用的发音人；新增加的发音人保存后刷新该网页后显示',
+          component: 'Select',
+          componentProps: {
+            options: (Config.siliconflow_VoiceApi || []).map((item, index) => {
+              return { label: item.remark || `接口配置 ${index + 1}`, value: index + 1 }
+            }).concat([{ label: "关闭siliconflow文字转语音", value: 0 }])
           },
         },
         {
@@ -1005,15 +1047,24 @@ export function supportGuoba() {
           component: 'Divider'
         },
         {
+          field: 'fish_base_url',
+          label: 'Fish反向代理',
+          bottomHelpMessage: '填写对 https://api.fish.audio 的反向代理；留空则使用默认',
+          component: 'Input',
+          componentProps: {
+            placeholder: 'https://api.fish.audio',
+          },
+        },
+        {
           field: 'fishApiKey',
           label: 'Api Key',
-          bottomHelpMessage: '（仅限api.fish.audio）（需要配置key且云转码设置为“文件”）收费，API KEY获取地址：https://fish.audio/zh-CN/go-api/api-keys',
-          component: 'Input'
+          bottomHelpMessage: 'API KEY获取地址：https://fish.audio/zh-CN/go-api/api-keys ； 如果有多个用英文逗号隔开',
+          component: 'InputPassword'
         },
         {
           field: 'fish_reference_id',
           label: '发音人ID',
-          bottomHelpMessage: '（仅限api.fish.audio）这里填入你想要的模型model的代码，例如派蒙的是efc1ce3726a64bbc947d53a1465204aa；说明：api.fish.audio 不受 vits默认角色 控制，仅由 发音人ID 决定其发音人；可用指令：#搜索fish发音人[名称]',
+          bottomHelpMessage: '这里填入你想要的模型model的代码，例如派蒙的是efc1ce3726a64bbc947d53a1465204aa；说明：api.fish.audio 不受 vits默认角色 控制，仅由 发音人ID 决定其发音人；可用指令：#搜索fish发音人[名称]',
           component: 'Input'
         },
         //   field: 'api_fish_audio_account_ID',
@@ -1309,44 +1360,60 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'amapKey',
-          label: '高德APIKey',
-          bottomHelpMessage: '智能模式时，用于查询天气',
-          component: 'Input'
-        },
-        {
-          field: 'githubAPIKey',
-          label: 'github Access Token',
-          bottomHelpMessage: '去https://github.com/settings/personal-access-tokens生成。仅用于Github仓库读取工具。不填写的话请求Github限制为每小时 60 次',
-          component: 'Input'
-        },
-        {
-          field: 'serpSource',
-          label: '搜索来源',
+          field: 'serpSourceArr',
+          label: '搜索/网络来源',
           component: 'Select',
-          bottomHelpMessage: '若选择 Gemini原生搜索 需确保 对话-Gemini方式可使用；若选择 Azure（收费的）需填写 Azure search key；若选择 tavily search 需填写 tavily key；若使用呆毛版纯本地搜索工具，需要安装python3和依赖，附Ubuntu的安装方法: `apt install python3 python3-pip` `pip install aiohttp beautifulsoup4 googlesearch-python`',
+          bottomHelpMessage: '若选择 Gemini原生搜索 需确保 对话-Gemini方式可使用；若选择（需配置）的工具，需要填写下面对应Key；若使用呆毛版纯本地搜索工具，需要安装python3和依赖，附Ubuntu的安装方法: `apt install python3 python3-pip` `pip install aiohttp beautifulsoup4 googlesearch-python`',
           componentProps: {
+            allowAdd: true,
+            allowDel: true,
+            mode: 'multiple',
             options: [
-              { label: '呆毛版纯本地搜索工具', value: 'misaka_WebSearchTool' },
-              { label: 'Gemini原生搜索', value: 'geminiSearchTool' },
-              { label: 'tavily search', value: 'tavily_search' },
-              { label: 'Azure（收费的）', value: 'azure' },
+              { label: '百度图片搜索工具（推荐）', value: 'SerpImageTool_Baidu' },
+              { label: 'B站视频搜索工具（推荐）', value: 'Bilibili_SearchVideoTool' },
+              { label: 'QQ音乐搜索工具（推荐）', value: 'SendQQ_MusicTool' },
+              { label: '网易云音乐搜索工具（推荐）', value: 'Send163_MusicTool' },
+              { label: '高德天气搜索（推荐）（需配置）', value: 'Weather_Tool' },
+              { label: '百度AI搜索（推荐）（需配置）', value: 'BaiduAI_SearchTool' },
+              { label: 'Gemini原生搜索（需配置）', value: 'geminiSearchTool' },
+              { label: 'Tavily search（需配置）', value: 'tavily_search' },
+              { label: 'Tavily网页读取工具（需配置）', value: 'tavily_WebsiteTool' },
+              { label: 'Azure search（需配置）', value: 'azure' },
+              { label: '呆毛版纯本地搜索工具（无反爬）', value: 'misaka_WebSearchTool' },
+              { label: '本地网页读取工具（无反爬）', value: 'local_WebsiteTool' },
               { label: 'ikechan8370（不再提供服务）', value: 'ikechan8370' },
-              { label: '关闭搜索工具', value: 'off' }
             ]
           }
         },
         {
-          field: 'azSerpKey',
-          label: 'Azure search key',
-          bottomHelpMessage: 'https://www.microsoft.com/en-us/bing/apis/bing-web-search-api 访问 https://portal.azure.com 创建新的 "Bing Search" 资源；当您首次创建 Azure 账户时，微软会提供 ​​200 美元的免费信用额度​​，有效期 30 天。',
-          component: 'Input'
+          field: 'amapKey',
+          label: '高德APIKey',
+          bottomHelpMessage: '用于 高德天气搜索工具；前往 https://console.amap.com/dev/key/app 申请',
+          component: 'InputPassword'
         },
         {
           field: 'tavilyKey',
           label: 'tavily key',
-          bottomHelpMessage: 'https://app.tavily.com/ 每个月 1000 Credits 额度；填写后智能模式中的 WebsiteTool（网页内容提取工具）将使用 tavily Api；若拥有多个 Key 使用英文逗号分割',
-          component: 'Input'
+          bottomHelpMessage: '用于 Tavily search 和 Tavily 网页读取工具； https://app.tavily.com/ 每个月 1000 Credits 额度；若拥有多个 Key 使用英文逗号分割',
+          component: 'InputPassword'
+        },
+        {
+          field: 'baiduAppBuilderKey',
+          label: '百度智能云Key',
+          bottomHelpMessage: '用于 百度AI搜索；前往 https://console.bce.baidu.com/iam/#/iam/apikey/list 申请；百度AI搜索 每日免费50次，未开通“按量后付费”不会自动扣费；若拥有多个 Key 使用英文逗号分割',
+          component: 'InputPassword'
+        },
+        {
+          field: 'azSerpKey',
+          label: 'Azure search key',
+          bottomHelpMessage: '用于 Azure search；https://www.microsoft.com/en-us/bing/apis/bing-web-search-api 访问 https://portal.azure.com 创建新的 "Bing Search" 资源；当您首次创建 Azure 账户时，微软会提供 ​​200 美元的免费信用额度​​，有效期 30 天。',
+          component: 'InputPassword'
+        },
+        {
+          field: 'githubAPIKey',
+          label: 'github Access Token',
+          bottomHelpMessage: '用于 Github仓库读取工具；前往 https://github.com/settings/personal-access-tokens 生成；不填写的话请求Github限制为每小时 60 次',
+          component: 'InputPassword'
         },
         {
           label: '智能模式 工具设置',
@@ -1379,7 +1446,7 @@ export function supportGuoba() {
         {
           field: 'switch_EmojiTool',
           label: '工具新增-发送表情',
-          bottomHelpMessage: '新增根据情绪发送表情的工具；使用方法: 1.开启后在智能模式下与AI对话将自动在 ./data/chatgpt/sendEmojiTool/ 文件夹下创建各种情绪的子文件夹；2.把你的表情图片放入对应的情绪文件夹；3.支持图片格式 .jpg .png .gif；4.中英对照表: happy - 开心、高兴, sad - 难过、伤心, angry - 生气、愤怒, love - 爱心、喜欢, confused - 困惑、疑惑, tired - 疲惫、累, excited - 兴奋、激动, scared - 害怕、恐惧, laugh - 大笑、爆笑, cry - 哭泣、流泪, cute - 可爱、卖萌, shy - 害羞、脸红, thumbsup - 点赞、赞同, thinking - 思考、沉思, surprised - 惊讶、震惊, bored - 无聊、乏味, cool - 酷、帅气, sick - 生病、不舒服, sleep - 睡觉、困, eat - 吃饭、美食；3.可在Bot人设中加入“你将总是使用 sendEmoji 工具”',
+          bottomHelpMessage: '新增根据情绪发送表情的工具；使用方法: 1.开启后在智能模式下与AI对话将自动在 ./data/chatgpt/sendEmojiTool/ 文件夹下创建各种情绪的子文件夹；2.把你的表情图片放入对应的情绪文件夹；3.支持图片格式 .jpg .png .gif；4.中英对照表: happy - 开心、高兴, sad - 难过、伤心, angry - 生气、愤怒, love - 爱心、喜欢, confused - 困惑、疑惑, tired - 疲惫、累, excited - 兴奋、激动, scared - 害怕、恐惧, laugh - 大笑、爆笑, cry - 哭泣、流泪, cute - 可爱、卖萌, shy - 害羞、脸红, thumbsup - 点赞、赞同, thinking - 思考、沉思, surprised - 惊讶、震惊, bored - 无聊、乏味, cool - 酷、帅气, sick - 生病、不舒服, sleep - 睡觉、困, eat - 吃饭、美食；3.可在Bot人设中加入“你将总是使用 sendEmoji 工具”；4.Gemini识别并偷图指令： #gpt偷图',
           component: 'Switch'
         },
         {
@@ -1395,15 +1462,21 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'TTSAudio_Tool',
+          label: '工具新增-智能发送语音',
+          bottomHelpMessage: '新增智能发送语音工具，提供给AI让Ta可以在适当的时候给你发送语音；需要先配置语音模式下可正常发送语音',
+          component: 'Switch'
+        },
+        {
           field: 'getPixivTool',
           label: '工具新增-Pixiv搜图',
           bottomHelpMessage: '新增工具提供给AI搜索并发送Pixiv的插图',
           component: 'Switch'
         },
         {
-          field: 'TTSAudio_Tool',
-          label: '工具新增-智能发送语音',
-          bottomHelpMessage: '新增智能发送语音工具，提供给AI让Ta可以在适当的时候给你发送语音；需要先配置语音模式下可正常发送语音',
+          field: 'getPixiv18Tool',
+          label: '工具调整-Pixiv搜图18+',
+          bottomHelpMessage: '↑ 开启后 Pixiv搜图工具 可以搜索并发送18+图片功能',
           component: 'Switch'
         },
         {
@@ -1488,6 +1561,7 @@ export function supportGuoba() {
               { label: "siliconflow-plugin（#sf绘画）", value: "siliconflow-paint" },
               { label: "siliconflow-plugin（#mjp #niji）", value: "Midjourney-paint" },
               { label: "siliconflow-Jimeng（#即梦绘画）", value: "Jimeng-paint" },
+              { label: "siliconflow-Jimeng（#即梦视频）", value: "Jimeng-videoGeneration" },
               { label: "siliconflow-plugin（#g谷歌编辑图片）", value: "gemini-Image-gg" },
               { label: "siliconflow-plugin（#sgpt编辑图片）", value: "gpt-Image-2-ss" },
               { label: "siliconflow-plugin（#d魔搭编辑图片）", value: "sf-dd-paint" },
@@ -2231,6 +2305,37 @@ export function supportGuoba() {
         if (typeof azureSpeaker === 'object' && azureSpeaker !== null) {
           Config.getConfig().azureTTSSpeaker = azureSpeaker.code
         }
+
+        /**
+         * @description: 转换 config.{} component: 'Select' 的 mode: 'tags'
+         * @param {*} targetObj config
+         * @param {*} sourceObj data
+         * @param {*} path data[''] 中的点路径字符串值
+         * @return {*}
+         */
+        const assignFirstElementIfExists = (targetObj, sourceObj, path) => {
+          const sourceData = sourceObj[path];
+          if (sourceData == null) return;
+          const firstElement = Array.isArray(sourceData) ? sourceData[0] : sourceData;
+          if (firstElement != null) {
+            const assignPath = path.startsWith('config.') ? path.slice(7) : path;
+            const keys = assignPath.split('.');
+            let current = targetObj;
+            for (let i = 0; i < keys.length - 1; i++) {
+              const key = keys[i];
+              if (current[key] == null) {
+                current[key] = {};
+              }
+              current = current[key];
+            }
+            const lastKey = keys[keys.length - 1];
+            current[lastKey] = firstElement;
+          }
+        };
+        assignFirstElementIfExists(Config.getConfig(), data, 'geminiModel');
+        assignFirstElementIfExists(Config.getConfig(), data, 'gemini_fallbackModel');
+        assignFirstElementIfExists(Config.getConfig(), data, 'gemini_vqa_model');
+        assignFirstElementIfExists(Config.getConfig(), data, 'geminiSearchModel');
 
         // 对于 config 中对象/对象数组 的修改 Proxy 对象不会执行 set() 所以要手动保存
         Config.save();

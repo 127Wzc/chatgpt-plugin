@@ -92,7 +92,6 @@ const defaultConfig = {
   drawByJsonToPlugin: false,
   drawToolsArr: [],
   sf_markdownPic: false,
-  // add_sf_image_edit: false,
   disable_sendMessage_tool: true,
   change_handleMsg_tool: true,
   nai3PluginToPaintPrefix: "artist:ciloranko, [artist:tianliang duohe fangdongye], [artist:sho_(sho_lwlw)], [artist:baku-p], [artist:tsubasa_tsubasa],",
@@ -141,8 +140,9 @@ const defaultConfig = {
   // api_fish_token_quota: 49,
   // api_fish_control_defaultUseTTS: false,
   siliconflow_Voice_ApiKey: "",
-  siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B",
-  siliconflow_Voice_ReferenceId: "speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj",
+  siliconflow_VoiceApi: [{ siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj", remark: "派蒙" }, { siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:keli:cm08sphf600du6l3t3szh0t16:bvteaayeqsrhnvkpfchr", remark: "可莉" }],
+  siliconflow_Voice_Current_Index: 1,
+  fish_base_url: "",
   fishApiKey: "",
   fish_reference_id: "efc1ce3726a64bbc947d53a1465204aa",
   tts_ffmpeg_path: "/usr/local/bin/ffmpeg",
@@ -154,8 +154,10 @@ const defaultConfig = {
   meme_maxFileSize: 10,
   meme_CD: 19,
   isConvertSentenceToArrayReply: false,
-  gemini_vqa_model: "gemini-2.5-flash",
-  geminiSearchModel: "gemini-2.5-flash",
+  geminiModel: 'gemini-flash-latest',
+  gemini_fallbackModel: "gemini-flash-lite-latest",
+  gemini_vqa_model: "gemini-flash-lite-latest",
+  geminiSearchModel: "gemini-flash-lite-latest",
   gemini_vqa_needMaster: true,
   ttsHD: false,
   focus_CloudTranscode: false,
@@ -226,19 +228,17 @@ const defaultConfig = {
   amapKey: '',
   azSerpKey: '',
   tavilyKey: '',
-  serpSource: 'off',
+  serpSourceArr: ["SerpImageTool_Baidu", "Bilibili_SearchVideoTool", "Send163_MusicTool", "Weather_Tool", "geminiSearchTool", "SendQQ_MusicTool"],
   extraUrl: '',
   smartMode: false,
   // claude2
-  claudeAIOrganizationId: '',
-  claudeAISessionKey: '',
-  claudeAIReverseProxy: '',
-  claudeAITimeout: 120,
-  claudeAIJA3: '772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,27-5-65281-13-35-0-51-18-16-43-10-45-11-17513-23,29-23-24,0',
-  claudeAIUA: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-  // trss配置
+  // claudeAIOrganizationId: '',
+  // claudeAISessionKey: '',
+  // claudeAIReverseProxy: '',
+  // claudeAITimeout: 120,
+  // claudeAIJA3: '772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,27-5-65281-13-35-0-51-18-16-43-10-45-11-17513-23,29-23-24,0',
+  // claudeAIUA: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
   trssBotUin: '',
-  // 同义千问
   qwenApiKey: '',
   qwenModel: 'qwen-turbo',
   qwenTopP: 0.5,
@@ -248,7 +248,6 @@ const defaultConfig = {
   qwenEnableSearch: true,
   geminiKey: '',
   // geminiKeyArr: '',
-  geminiModel: 'gemini-2.0-flash',
   geminiPrompt: 'You are Gemini. Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
   // origin: https://generativelanguage.googleapis.com
   geminiBaseUrl: 'https://gemini.ikechan8370.com',
@@ -319,6 +318,7 @@ const defaultConfig = {
   agent_SandboxSwitch: false,
   auto_makeForwardMsg: 2000,
   getPixivTool: false,
+  getPixiv18Tool: false,
   switch_EmojiTool: false,
   switch_ChatCooldown: true,
   gemini_temperature: 0.9,
@@ -326,7 +326,6 @@ const defaultConfig = {
   enableEmojiLikeTool: true,
   mediaRecognitionSource: "Orignal",
   mediaRecognitionGeminiTool: true,
-  gemini_fallbackModel: "gemini-2.5-flash",
   ScheduleTask_Tool: true,
   ScheduleTask_MaxPerUser: 1,
   ScheduleTask_CronMaxPerUser: 0,
@@ -336,6 +335,7 @@ const defaultConfig = {
   chatgptBlockCount: 50,
   TTSAudio_Tool: false,
   replyConfirmType: 111,
+  baiduAppBuilderKey: "",
 
   // 记忆系统配置
   enableMemory: false, // 是否启用记忆系统
@@ -444,6 +444,10 @@ export const Config = new Proxy(config, {
       return randomKeyStr(target.geminiKey, property);
     else if (property === 'getTavilyKey')
       return randomKeyStr(target.tavilyKey, property);
+    else if (property === 'getBaiduAppBuilderKey')
+      return randomKeyStr(target.baiduAppBuilderKey, property);
+    else if (property === 'getFishApiKey')
+      return randomKeyStr(target.fishApiKey, property);
     else if (property === 'get_draw_PluginCharactersList') {
       return function () {
         const defaultJson = { "nahida": "nahida (genshin impact), toddler", "klee": "klee (genshin impact), toddler", "paimon": "paimon (genshin impact), toddler", "bailu": "bailu (honkai: star rail), toddler", "clara": "clara (honkai: star rail), toddler", "last(_|\\s)order|misaka": "last order(Toaru Majutsu no Index), toddler", "sayu": "sayu (genshin impact), toddler", "diona": "diona (genshin impact), toddler", "yaoyao": "yaoyao (genshin impact), toddler", "qiqi": "qiqi (genshin impact), toddler", "furina": "furina (genshin impact), toddler", "Mahiro": "Oyama Mahiro(Onichanhaoshimai), toddler", "arona": "arona (blue archive), toddler", "sora": "sora (blue archive), toddler", "kokona": "kokona (blue archive), toddler", "hoshino": "hoshino (blue archive), toddler", "Koharu": "Shimoe Koharu (Blue archive), toddler", "Gura": "Gawr Gura (Hololive), toddler", "suzuran": "suzuran (arknights), toddler", "Anya": "Anya Forger(SPY×FAMILY), light pink hair, toddler", "AzusaNya": "nakano Azusa(K-ON), toddler", "Azusa": "azusa (blue archive), toddler", "laffey": "laffey (azur lane), toddler", "nachoneko": "nachoneko (indie virtual youtuber), toddler", "ibuki": "tanga ibuki (blue archive), blond hair, toddler", "shun": "shun (small) (blue archive), toddler", "hu(_|\\s)tao": "hu tao (genshin impact), toddler", "Platelet": "girl Platelet (Hataraku Saibou), toddler", "chino": "kafuu chino (gochuumon wa usagi desu ka?), toddler", "shuvi": "shuvi (no game no life), purple hair, long hair, hair_ornament, toddler", "plana": "plana (blue archive), toddler", "kinako": "kinako (40hara), cat girl, cat ear, toddler", "kanna(_|\\s)kamui": "kanna kamui (maidragon), toddler" }
@@ -460,7 +464,7 @@ export const Config = new Proxy(config, {
     }
     else if (property === 'get_geminiModels') {
       return function () {
-        const defaultArr = ['gemini-3.1-pro-preview', 'gemini-3.1-flash-lite-preview', 'gemini-3-pro-preview', 'gemini-3-flash-preview', 'gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image-preview']
+        const defaultArr = ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite-preview']
         try {
           const fetchModels = Array.isArray(target.geminiModelsByFetch) ? target.geminiModelsByFetch : [];
           return lodash.uniq([...defaultArr, ...fetchModels]);
