@@ -13,7 +13,7 @@ export class SerpImageTool_by_baidu extends AbstractTool {
       },
       limit: {
         type: 'number',
-        description: 'image number, default is 30, max is 50'
+        description: 'image number, default is 20, max is 50'
       }
     },
     required: ['q']
@@ -22,7 +22,7 @@ export class SerpImageTool_by_baidu extends AbstractTool {
   description = 'Useful when you want to search images from Baidu (百度图片搜索). Returns image URLs that can be sent using sendPicture.'
 
   func = async function (opts) {
-    let { q, limit = 30 } = opts
+    let { q, limit = 20 } = opts
     try {
       const url = `https://image.baidu.com/search/acjson?tn=resultjson_com&word=${encodeURIComponent(q)}&pn=0&rn=${Math.min(limit, 50)}`
 
@@ -33,7 +33,13 @@ export class SerpImageTool_by_baidu extends AbstractTool {
         }
       })
 
-      const data = await response.json()
+      // 清除非法控制字符后再解析
+      const text = await response.text()
+      const cleanText = text
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // 移除不可见的非法控制字符（含未转义的换行、制表符等）
+        .replace(/\\'/g, "'")                 // 修复 JSON 标准中不允许的单引号转义 \'
+
+      const data = JSON.parse(cleanText)
 
       if (!data.data || data.data.length === 0) {
         return `No images found for keyword: ${q}`
