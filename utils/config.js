@@ -140,7 +140,7 @@ const defaultConfig = {
   // api_fish_token_quota: 49,
   // api_fish_control_defaultUseTTS: false,
   siliconflow_Voice_ApiKey: "",
-  siliconflow_VoiceApi: [{ siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj", remark: "派蒙" }, { siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:keli:cm08sphf600du6l3t3szh0t16:bvteaayeqsrhnvkpfchr", remark: "可莉" }],
+  siliconflow_VoiceApi: [{ siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "FunAudioLLM/CosyVoice2-0.5B:alex", remark: "alex(系统预置音色)" }, { siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "FunAudioLLM/CosyVoice2-0.5B:anna", remark: "anna(系统预置音色)" }],
   siliconflow_Voice_Current_Index: 1,
   fish_base_url: "",
   fishApiKey: "",
@@ -345,6 +345,21 @@ const defaultConfig = {
   memorySummaryLimit: 12, // 每个记忆文件保留在 Summary 中的最大条数
   memoryRelevantFactsLimit: 4, // 每次对话从 Facts 中补充的相关记忆条数
   memoryPromptMaxChars: 1000, // 每次前置到用户消息的记忆上下文最大字符数
+
+  // MCP 协议配置
+  enableMcp: false, // 是否启用通用的 MCP 协议
+  mcpServers: `{
+  "mcpServers": {
+    "nocturne_memory": {
+      "enabled": false,
+      "command": "python",
+      "args": ["/root/nocturne_memory/backend/mcp_server.py"],
+      "env": {
+        "NAMESPACE": "default"
+      }
+    }
+  }
+}`, // 通用 MCP 服务器的配置列表，JSON 格式
 
 }
 const _path = process.cwd()

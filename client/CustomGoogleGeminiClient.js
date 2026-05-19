@@ -336,7 +336,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       delete content.conversationId
     })
     if (this.debug) {
-      logger.debug(JSON.stringify(body))
+      logger.info("body: " + JSON.stringify(body, null, 2))
     }
     let result = await newFetch(url, {
       method: 'POST',
@@ -362,7 +362,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
      */
     let response = await result.json()
     if (this.debug) {
-      console.log(JSON.stringify(response))
+      logger.info("response: " + JSON.stringify(response, null, 2))
     }
 
     // 检查响应中是否包含错误
@@ -382,7 +382,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         logger.info(`[Chatgpt][Gemini] 输入Token(${numTokens})${maxTokens ? ` | 回复上限(${maxTokens})` : ''} | 输出Token(${outTokens}) | 累计Token(${usage.totalTokenCount})`);
       }
     } catch (err) {
-      logger.debug(`[Chatgpt][Gemini] 打印 Token 日志失败: ${err.message}`);
+      logger.info(`[Chatgpt][Gemini] 打印 Token 日志失败: ${err.message}`);
     }
 
     // 检查 candidates 是否存在

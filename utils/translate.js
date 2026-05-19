@@ -139,7 +139,7 @@ export async function translate (msg, to = 'auto', from = 'auto', ai = Config.tr
         const res = await api.sendMessage(msg, {
           systemMessage: system,
           completionParams: {
-            model: 'gpt-3.5-turbo'
+            model: Config.model
           }
         })
         return res.text
@@ -147,7 +147,7 @@ export async function translate (msg, to = 'auto', from = 'auto', ai = Config.tr
       case 'gemini': {
         let client = new CustomGoogleGeminiClient({
           key: Config.getGeminiKey,
-          model: Config.geminiModel,
+          model: Config.gemini_vqa_model,
           baseUrl: Config.geminiBaseUrl,
           debug: Config.debug
         })

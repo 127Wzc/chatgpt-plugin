@@ -1,4 +1,5 @@
 import { Config, defaultOpenAIAPI } from '../utils/config.js'
+import McpManager from '../utils/mcp.js'
 import {
   extractContentFromFile,
   formatDate,
@@ -566,7 +567,7 @@ class Core {
           this.qwenApi = new QwenApi(opts)
           msg = await this.qwenApi.sendMessage(prompt, option)
           if (Config.debug)
-            logger.info(msg)
+            logger.info(JSON.stringify(msg, null, 2))
           while (msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) {
             if (msg.text) {
               await e.reply(msg.text.replace('\n\n\n', '\n'))
@@ -608,7 +609,7 @@ class Core {
             await common.sleep(300)
             msg = await this.qwenApi.sendMessage(functionResult, option, 'tool')
             if (Config.debug)
-              logger.info(msg)
+              logger.info(JSON.stringify(msg, null, 2))
 
             // 如果是函数返回结果，则跳出循环
             if (msg.conversation && msg.conversation.length > 0) {
@@ -650,7 +651,7 @@ class Core {
         stream: false,
         onProgress: (data) => {
           if (Config.debug) {
-            logger.info(data)
+            logger.info(JSON.stringify(data, null, 2))
           }
         },
         parentMessageId: conversation.parentMessageId,
@@ -786,7 +787,7 @@ class Core {
         stream: Config.apiStream,
         onProgress: (data) => {
           if (Config.debug) {
-            logger.info(data?.text || data.functionCall || data)
+            logger.info(JSON.stringify((data?.text || data.functionCall || data), null, 2))
           }
         }
         // systemMessage: promptPrefix
@@ -882,7 +883,7 @@ class Core {
           msg = await sendOpenAIWithContextFallback(messageContent, option)
 
           if (Config.debug) // 避免控制台刷屏
-            logger.info(msg)
+            logger.info(JSON.stringify(msg, null, 2))
 
           /** 工具调用轮次计数器 */
           let toolRoundCount = 0
@@ -1011,7 +1012,7 @@ class Core {
             msg = await sendOpenAIWithContextFallback(null, option)
 
             if (Config.debug)
-              logger.info(msg)
+              logger.info(JSON.stringify(msg, null, 2))
           }
 
           // 判断退出原因，如果是达到最大轮次强制退出的，打印警告
@@ -1159,6 +1160,19 @@ async function collectTools(e) {
       fullTools.push(new ToolClass())
     }
   });
+
+  // 加载已启用的通用 MCP 工具
+  if (Config.enableMcp) {
+    try {
+      const mcpTools = McpManager.getTools()
+      mcpTools.forEach(mcpTool => {
+        tools.push(mcpTool)
+        fullTools.push(mcpTool)
+      })
+    } catch (err) {
+      logger.error(`[Chatgpt][mcp] 加载 MCP 工具到对话失败: ${err.message}`)
+    }
+  }
 
   let systemAddition = ''
   if (e.isGroup) {

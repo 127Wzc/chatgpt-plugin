@@ -19,8 +19,8 @@ import cfg from '../../../lib/config/config.js'
 import {
     getGeminiModelsByFetch,
     recognitionResultsByGemini,
+    url2Base64,
 } from '../utils/paimonFuction.js'
-// import { ConversationManager } from '../model/conversation.js'
 import sfApi from '../utils/tts/siliconflow.js';
 import { getOnebotFileOrMediaUrl } from '../utils/paimonFuction.js';
 
@@ -227,7 +227,7 @@ export class voicechangehelp extends plugin {
                 for (let item of localApi) {
                     if (!cloudIdSet.has(item.siliconflow_Voice_ReferenceId)) {
                         let base = item.remark || '未命名';
-                        if (!base.endsWith('(云端不存在)')) {
+                        if (!base.endsWith('(云端不存在)') && !base.endsWith('(系统预置音色)')) {
                             item.remark = base + '(云端不存在)';
                             hasChanges = true;
                         }
@@ -409,41 +409,22 @@ export class voicechangehelp extends plugin {
             await e.reply('正在获取并转换音频，请稍候...', true);
             let audioBase64 = '';
             try {
-                if (typeof audioUrl === 'string' && audioUrl.startsWith('base64://')) {
-                    // 处理部分适配器直接返回的 base64 字符串
-                    audioBase64 = `data:audio/mpeg;base64,${audioUrl.replace('base64://', '')}`;
-                } else if (typeof audioUrl === 'string' && audioUrl.startsWith('data:audio/')) {
-                    audioBase64 = audioUrl;
-                } else if (typeof audioUrl === 'string' && audioUrl.startsWith('http')) {
-                    // 处理常规的 Http 链接
-                    const audioRes = await fetch(audioUrl);
-                    if (!audioRes.ok) {
-                        throw new Error(`HTTP请求失败，状态码: ${audioRes.status}`);
-                    }
-                    const buffer = await audioRes.buffer();
-                    audioBase64 = `data:audio/mpeg;base64,${buffer.toString('base64')}`;
-                } else {
-                    // 适配有些适配器返回的是本地绝对路径或 file:// 协议
-                    let localPath = audioUrl;
-                    if (localPath.startsWith('file://')) {
-                        const urlModule = await import('node:url');
-                        localPath = urlModule.fileURLToPath(localPath);
-                    }
-                    const fsModule = await import('node:fs');
-                    if (fsModule.existsSync(localPath)) {
-                        const buffer = fsModule.readFileSync(localPath);
-                        audioBase64 = `data:audio/mpeg;base64,${buffer.toString('base64')}`;
-                    } else {
-                        throw new Error(`无法识别的音频URL或找不到本地文件: ${audioUrl}`);
-                    }
+                const rawBase64 = await url2Base64(audioUrl, false, false, { maxSizeBytes: 10 * 1024 * 1024 }, e);
+
+                if (!rawBase64) {
+                    // 如果返回 null，说明解析/下载失败，url2Base64 内部已自动 e.reply 提示用户，直接 return 即可。
+                    return;
                 }
+
+                // 拼接 API 需要的数据前缀
+                audioBase64 = `data:audio/mpeg;base64,${rawBase64}`;
+
             } catch (err) {
                 return await e.reply(`音频获取/转换失败：${err.message}`, true);
             }
 
             // 步骤 5：发起API请求（使用用户选择的模型）
             await e.reply(`资料收集完毕，正在向 SiliconFlow 提交...\n模型: ${selectedModel}`, true);
-
             try {
                 const result = await sfApi.uploadVoice(apiKey, selectedModel, customName, audioBase64, referenceText);
                 if (result.uri) {

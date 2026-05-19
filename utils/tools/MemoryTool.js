@@ -43,7 +43,7 @@ function normalizeMemorySource(source, e) {
  * 允许AI在合适的时候主动记忆重要信息，用于构建更好的用户画像和对话体验
  */
 export class MemoryTool extends AbstractTool {
-  name = 'save_memory'
+  name = 'Memory_Tool'
 
   parameters = {
     properties: {
