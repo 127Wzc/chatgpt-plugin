@@ -200,7 +200,7 @@ export function supportGuoba() {
         {
           field: 'enableSuggestedResponses',
           label: '开启回复建议',
-          bottomHelpMessage: '开启后，如果模型返回数据包含 suggestedResponses 则发出来',
+          bottomHelpMessage: '开启后，如果模型返回数据包含 suggestedResponses 则发出来，如果不包含 suggestedResponses 则 POST OpenAI API 生成回复建议',
           component: 'Switch'
         },
         {
@@ -811,6 +811,12 @@ export function supportGuoba() {
           component: 'Input'
         },
         {
+          field: 'autoJapanese',
+          label: '日语语音输出',
+          bottomHelpMessage: '语音模式时，先将机器人的文字回复翻译成日文后获取语音；需要配置 杂项-翻译来源',
+          component: 'Switch'
+        },
+        {
           field: 'cloudTranscode',
           label: '云转码API地址',
           bottomHelpMessage: '目前只支持node-silk语音转码，可在本地node-silk无法使用时尝试使用云端资源转码',
@@ -975,13 +981,6 @@ export function supportGuoba() {
               value: '随机'
             }].concat(speakers.map(s => { return { label: s, value: s } }))
           }
-        },
-        {
-          field: 'autoJapanese',
-          label: 'vits模式日语输出',
-          bottomHelpMessage: '使用vits语音时，将机器人的文字回复翻译成日文后获取语音。' +
-            '若想使用插件的翻译功能，发送"#chatgpt翻译帮助"查看使用方法，支持图片翻译，引用翻译',
-          component: 'Switch'
         },
         {
           label: 'siliconflow 语音api设置',
@@ -1632,7 +1631,7 @@ export function supportGuoba() {
         {
           field: 'enableMemory',
           label: '启用记忆系统',
-          bottomHelpMessage: '允许AI主动保存和使用用户记忆（用户画像、情感、偏好等），用于提供更个性化的对话体验。可用指令： #记忆帮助',
+          bottomHelpMessage: '允许AI主动保存和使用用户记忆（用户画像、情感、偏好等），用于提供更个性化的对话体验；需要在系统提示词中写入积极调用 Memory_Tool ；呆毛注：目前推荐关闭这个记忆功能，改用下面的面包版MCP独立人格记忆。可用指令： #记忆帮助',
           component: 'Switch'
         },
         {
@@ -1665,6 +1664,34 @@ export function supportGuoba() {
             min: 1,
             step: 1
           }
+        },
+        {
+          label: 'MCP',
+          component: 'Divider'
+        },
+        {
+          field: 'enableMcp',
+          label: '通用 MCP 协议',
+          bottomHelpMessage: '启用通用 MCP 协议，将允许插件连接通用 MCP 协议服务器，加载工具到智能模式；修改后需重启生效',
+          component: 'Switch'
+        },
+        {
+          field: 'mcpServers',
+          label: 'MCP 服务器配置 (JSON)',
+          bottomHelpMessage: '配置通用 MCP 服务器，支持本地进程(stdio)与远程(SSE)方式；可在单个服务器配置中写 `"enabled": true` `"enabled": false` 随时单独开启/关闭；目前推荐的MCP服务有: 1.独立人格记忆: https://github.com/Dataojitori/nocturne_memory ；请严格按照JSON格式书写，必要时使用https://json-online.com/check/；修改后需重启生效',
+          component: 'InputTextArea',
+          componentProps: {
+            placeholder: '' +
+              '{\n' +
+              '  "mcpServers": {\n' +
+              '    "nocturne_memory": {\n' +
+              '      "enabled": false,\n' +
+              '      "command": "python",\n' +
+              '      "args": ["/root/nocturne_memory/backend/mcp_server.py""]\n' +
+              '    }\n' +
+              '  }\n' +
+              '}',
+          },
         },
         {
           label: '小功能',
@@ -1927,9 +1954,13 @@ export function supportGuoba() {
           component: 'SOFT_GROUP_BEGIN'
         },
         {
+          label: 'GPT翻译',
+          component: 'Divider'
+        },
+        {
           field: 'translateSource',
           label: '翻译来源',
-          bottomHelpMessage: '#gpt翻译使用的AI来源',
+          bottomHelpMessage: '设置 #gpt翻译 使用的AI来源；可用指令：#gpt翻译帮助 #chatgpt设置翻译来源[openai|gemini|星火|通义千问|xh|qwen]',
           component: 'Select',
           componentProps: {
             options: [

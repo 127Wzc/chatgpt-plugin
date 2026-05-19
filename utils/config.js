@@ -140,7 +140,7 @@ const defaultConfig = {
   // api_fish_token_quota: 49,
   // api_fish_control_defaultUseTTS: false,
   siliconflow_Voice_ApiKey: "",
-  siliconflow_VoiceApi: [{ siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:paimeng:cm08sphf600du6l3t3szh0t16:aokpesfnylxyxyfwmnyj", remark: "派蒙" }, { siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "speech:keli:cm08sphf600du6l3t3szh0t16:bvteaayeqsrhnvkpfchr", remark: "可莉" }],
+  siliconflow_VoiceApi: [{ siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "FunAudioLLM/CosyVoice2-0.5B:alex", remark: "alex(系统预置音色)" }, { siliconflow_Voice_Model: "FunAudioLLM/CosyVoice2-0.5B", siliconflow_Voice_ReferenceId: "FunAudioLLM/CosyVoice2-0.5B:anna", remark: "anna(系统预置音色)" }],
   siliconflow_Voice_Current_Index: 1,
   fish_base_url: "",
   fishApiKey: "",
@@ -338,6 +338,21 @@ const defaultConfig = {
   maxMemoriesPerUser: 20, // 每个用户最大记忆数量
   memoryMinImportance: 1, // 附加到对话的最低重要性阈值（1-10）
   memoryContextLimit: 10, // 每次对话附加的最大记忆数量
+
+  // MCP 协议配置
+  enableMcp: false, // 是否启用通用的 MCP 协议
+  mcpServers: `{
+  "mcpServers": {
+    "nocturne_memory": {
+      "enabled": false,
+      "command": "python",
+      "args": ["/root/nocturne_memory/backend/mcp_server.py"],
+      "env": {
+        "NAMESPACE": "default"
+      }
+    }
+  }
+}`, // 通用 MCP 服务器的配置列表，JSON 格式
 
 }
 const _path = process.cwd()
