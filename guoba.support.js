@@ -49,6 +49,18 @@ export function supportGuoba() {
           }
         },
         {
+          field: 'tts_First_person',
+          label: 'AI的第一人称',
+          bottomHelpMessage: '指定某些情况指定回复下AI的第一人称，用于戳一戳文案、AI回应第一人称呼叫；重启生效',
+          component: 'Input'
+        },
+        {
+          field: 'chat_for_First_person',
+          label: 'AI回应第一人称呼叫',
+          bottomHelpMessage: 'AI会回应包含其第一人称的信息。修改AI的第一人称后该功能重启生效。如果不触发，则考虑指令冲突，例如先去锅巴把喵仔设置里面的机器人别名给删掉',
+          component: 'Switch'
+        },
+        {
           field: 'enablePrivateChat',
           label: '是否允许私聊机器人',
           bottomHelpMessage: 'Bot主人不受限制',
@@ -286,13 +298,13 @@ export function supportGuoba() {
         {
           field: 'apiKey',
           label: 'OpenAI API Key',
-          bottomHelpMessage: 'OpenAI的ApiKey，用于访问OpenAI的API接口',
+          bottomHelpMessage: 'OpenAI的ApiKey，用于访问OpenAI的API接口；可用指令： #chatgpt切换API #chatgpt[开启|关闭]API流',
           component: 'InputPassword'
         },
         {
           field: 'model',
           label: 'OpenAI 模型',
-          bottomHelpMessage: '填写OpenAI模型或OpenAI API兼容的其他模型。可用指令：  #chatgpt切换API #chatgpt[开启|关闭]API流',
+          bottomHelpMessage: '填写OpenAI模型或OpenAI API兼容的其他模型',
           component: 'Input'
         },
         {
@@ -429,13 +441,13 @@ export function supportGuoba() {
         //   component: 'Switch'
         // },
         {
-          label: '以下为智谱清言（ChatGLM）方式的配置。',
+          label: '以下为智谱清言（ChatGLM）方式的配置',
           component: 'Divider'
         },
         {
           field: 'chatglmRefreshToken',
           label: 'refresh token',
-          bottomHelpMessage: 'chatglm_refresh_token 6个月有效期',
+          bottomHelpMessage: 'chatglm_refresh_token 6个月有效期；可用指令： #chatgpt切换智谱',
           component: 'Input'
         },
         {
@@ -445,7 +457,7 @@ export function supportGuoba() {
         {
           field: 'claudeApiKey',
           label: 'claude API Key',
-          bottomHelpMessage: '前往 https://console.anthropic.com/settings/keys 注册和生成。可以填写多个，用英文逗号隔开',
+          bottomHelpMessage: '前往 https://console.anthropic.com/settings/keys 注册和生成；可以填写多个，用英文逗号隔开；可用指令： #chatgpt切换claude #chatgpt设置claudeKey',
           component: 'InputPassword'
         },
         {
@@ -525,7 +537,7 @@ export function supportGuoba() {
         {
           field: 'xhmode',
           label: '星火模式',
-          bottomHelpMessage: '设置星火使用的对话模式',
+          bottomHelpMessage: '设置星火使用的对话模式；可用指令： #chatgpt切换星火 #chatgpt设置星火token',
           component: 'Select',
           componentProps: {
             options: [
@@ -612,7 +624,7 @@ export function supportGuoba() {
         {
           field: 'qwenApiKey',
           label: '通义千问API Key',
-          bottomHelpMessage: '通义千问的ai人格使用“API方式”中的设置，请自行设置',
+          bottomHelpMessage: '通义千问的ai人格使用“API方式”中的设置，请自行设置；可用指令： #chatgpt切换千问',
           component: 'InputPassword'
         },
         {
@@ -660,7 +672,7 @@ export function supportGuoba() {
         {
           field: 'azApiKey',
           label: 'Azure API Key',
-          bottomHelpMessage: '管理密钥，用于访问Azure的API接口',
+          bottomHelpMessage: '管理密钥，用于访问Azure的API接口；可用指令： #chatgpt切换azure',
           component: 'InputPassword'
         },
         {
@@ -682,13 +694,13 @@ export function supportGuoba() {
         {
           field: 'geminiBaseUrl',
           label: 'Gemini反代',
-          bottomHelpMessage: '对https://generativelanguage.googleapis.com的反代，可以填入https://gemini.ikechan8370.com 或 https://gemini.maliy.top （常见报错：500 Internal Server Error）',
+          bottomHelpMessage: '对https://generativelanguage.googleapis.com的反代，可以填入https://gemini.ikechan8370.com 或 https://gemini.maliy.top （常见报错：500 Internal Server Error）；可用指令： #chatgpt切换gemini #chatgpt设置geminikey #chatgpt(开启|关闭)gemini(搜索|代码执行)',
           component: 'Input'
         },
         {
           field: 'geminiKey',
           label: 'API密钥',
-          bottomHelpMessage: '前往https://makersuite.google.com/app/apikey获取，如果有多个用英文逗号隔开，Key将轮替使用；可用指令：#chatgpt设置geminikey  #chatgpt切换gemini',
+          bottomHelpMessage: '前往https://makersuite.google.com/app/apikey获取，如果有多个用英文逗号隔开，Key将轮替使用',
           component: 'InputPassword'
         },
         {
@@ -786,6 +798,12 @@ export function supportGuoba() {
           field: 'defaultUseTTS',
           label: '全局语音模式',
           bottomHelpMessage: '全局默认以语音形式回复，使用默认角色音色',
+          component: 'Switch'
+        },
+        {
+          field: 'enableManualSendTTSAudio',
+          label: '允许#gpt发语音',
+          bottomHelpMessage: '允许任何人使用默认角色音色生成语音指令： #gpt发语音[内容] ；关闭后仅主人可用',
           component: 'Switch'
         },
         {
@@ -1378,6 +1396,8 @@ export function supportGuoba() {
               { label: 'Tavily search（需配置）', value: 'tavily_search' },
               { label: 'Tavily网页读取工具（需配置）', value: 'tavily_WebsiteTool' },
               { label: 'Azure search（需配置）', value: 'azure' },
+              { label: 'Github仓库读取（需配置）', value: 'GithubAPI' },
+              { label: '必应图片搜索工具（分辨率低）', value: 'SerpImageTool_Bing' },
               { label: '呆毛版纯本地搜索工具（无反爬）', value: 'misaka_WebSearchTool' },
               { label: '本地网页读取工具（无反爬）', value: 'local_WebsiteTool' },
               { label: 'ikechan8370（不再提供服务）', value: 'ikechan8370' },
@@ -1415,7 +1435,61 @@ export function supportGuoba() {
           component: 'InputPassword'
         },
         {
-          label: '智能模式 工具设置',
+          label: '常用工具',
+          component: 'Divider'
+        },
+        {
+          field: 'toolDefaultArr',
+          label: '默认工具',
+          component: 'Select',
+          bottomHelpMessage: '智能模式中的默认工具，是其他工具的前置；推荐全部开启',
+          componentProps: {
+            allowAdd: true,
+            allowDel: true,
+            mode: 'multiple',
+            options: [
+              { label: '发送图片url工具', value: 'SendPicture' },
+              { label: '发送视频url工具', value: 'SendVideo' },
+              { label: '查询用户信息工具', value: 'QueryUserinfo' },
+              { label: '短暂拉黑用户工具', value: 'BlockUser' },
+            ]
+          }
+        },
+        {
+          field: 'toolGroupAdminArr',
+          label: '群管理工具',
+          component: 'Select',
+          bottomHelpMessage: '智能模式中的群管理工具；开启后检测到Bot为群管理员/群主才赋予该工具（已优化算法不会误伤其他群友）；推荐全部开启',
+          componentProps: {
+            allowAdd: true,
+            allowDel: true,
+            mode: 'multiple',
+            options: [
+              { label: '禁言', value: 'Jinyan' },
+              { label: '踢人', value: 'KickOut' },
+              { label: '设置头衔', value: 'SetTitle' },
+              { label: '修改群昵称', value: 'EditCard' },
+              { label: '消息工具（撤回、加精）', value: 'HandleMsg' },
+            ]
+          }
+        },
+        {
+          field: 'toolGameQueryArr',
+          label: '游戏查询工具',
+          component: 'Select',
+          bottomHelpMessage: '智能模式中的游戏查询工具，调用miao插件和genshin插件',
+          componentProps: {
+            allowAdd: true,
+            allowDel: true,
+            mode: 'multiple',
+            options: [
+              { label: '星铁查询', value: 'QueryStarRail' },
+              { label: '原神查询', value: 'QueryGenshin' },
+            ]
+          }
+        },
+        {
+          label: '可选工具',
           component: 'Divider'
         },
         {
@@ -1455,15 +1529,33 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'agent_SandboxSwitch',
-          label: '工具新增-沙箱',
-          bottomHelpMessage: '新增工具提供给AI在本地安全沙箱中执行代码，可用于科学计算、数据处理、逻辑运算等场景',
-          component: 'Switch'
-        },
-        {
           field: 'TTSAudio_Tool',
           label: '工具新增-智能发送语音',
           bottomHelpMessage: '新增智能发送语音工具，提供给AI让Ta可以在适当的时候给你发送语音；需要先配置语音模式下可正常发送语音',
+          component: 'Switch'
+        },
+        {
+          field: 'enableUserProfileTool',
+          label: '工具新增-用户画像工具',
+          bottomHelpMessage: '根据用户在群聊中的历史消息，使用子LLM生成用户画像（兴趣偏好、交流风格、活跃特征、性格倾向）；仅限群聊使用；可在Bot人设中加入"你将总是使用 userProfile 工具分析用户"',
+          component: 'Switch'
+        },
+        {
+          field: 'agent_MarkmapToolSwitch',
+          label: '工具新增-思维导图',
+          bottomHelpMessage: '新增 生成markmap思维导图 工具',
+          component: 'Switch'
+        },
+        {
+          field: 'generateMathRender_ToolSwitch',
+          label: '工具新增-公式及作图',
+          bottomHelpMessage: '新增 生成支持 Markdown 语法图片、数学公式（纯文本渲染）图片以及数学作图（Mermaid 结构图 / 函数图） 工具',
+          component: 'Switch'
+        },
+        {
+          field: 'agent_SandboxSwitch',
+          label: '工具新增-沙箱',
+          bottomHelpMessage: '新增工具提供给AI在本地安全沙箱中执行代码，可用于科学计算、数据处理、逻辑运算等场景',
           component: 'Switch'
         },
         {
@@ -1479,15 +1571,21 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'change_handleMsg_tool',
+          label: '工具调整-消息工具',
+          bottomHelpMessage: '智能模式中，修改“消息工具（handleMsg工具）”：1.引用消息时，bot如果要加精华时将强制指定为引用的消息；2.禁用撤回消息的功能。（该选项用于某些不够聪明的模型，例如 gemini 2.0 系列）（当你在控制台看到mark消息“[ChatGPT][handleMsg] Agent 已正确选择引用消息 source_message_id”就可以将该选项关闭了）',
+          component: 'Switch'
+        },
+        {
           field: 'disable_sendMessage_tool',
           label: '工具禁用-文字工具',
           bottomHelpMessage: '智能模式中，禁用“发送文本到当前群或指定群聊或私聊（sendMessage）工具”，适用于文字模式、图片模式、sf图片模式重复发送相同文本等问题',
           component: 'Switch'
         },
         {
-          field: 'change_handleMsg_tool',
-          label: '工具调整-msg工具',
-          bottomHelpMessage: '智能模式中，修改“handleMsg工具”：1.引用消息时，bot如果要加精华时将强制指定为引用的消息；2.禁用撤回消息的功能。（该选项用于某些不够聪明的模型，例如 gemini 2.0 系列）（当你在控制台看到mark消息“[ChatGPT][handleMsg] Agent 已正确选择引用消息 source_message_id”就可以将该选项关闭了）',
+          field: 'disable_SendAvatarTool',
+          label: '工具禁用-发送用户头像',
+          bottomHelpMessage: '智能模式中，禁用“发送用户头像”工具',
           component: 'Switch'
         },
         {
@@ -1631,13 +1729,23 @@ export function supportGuoba() {
         {
           field: 'enableMemory',
           label: '启用记忆系统',
-          bottomHelpMessage: '允许AI主动保存和使用用户记忆（用户画像、情感、偏好等），用于提供更个性化的对话体验；需要在系统提示词中写入积极调用 Memory_Tool ；呆毛注：目前推荐关闭这个记忆功能，改用下面的面包版MCP独立人格记忆。可用指令： #记忆帮助',
+          bottomHelpMessage: '允许AI主动保存和使用用户记忆（用户画像、情感、偏好等），用于提供更个性化的对话体验；需要在系统提示词中写入积极调用 Memory_Tool ；可用指令： #记忆帮助',
           component: 'Switch'
         },
         {
           field: 'maxMemoriesPerUser',
           label: '单用户最大记忆数量',
-          bottomHelpMessage: '每个用户最多保存的记忆条数，超过后会删除最早的记忆',
+          bottomHelpMessage: '每个用户最多保留的活跃记忆条数，超过后按重要性和时间衰减整理',
+          component: 'InputNumber',
+          componentProps: {
+            min: 10,
+            step: 1
+          }
+        },
+        {
+          field: 'maxMemoriesPerGroup',
+          label: '单群最大记忆数量',
+          bottomHelpMessage: '每个群最多保留的活跃群记忆条数，和用户记忆上限独立配置',
           component: 'InputNumber',
           componentProps: {
             min: 10,
@@ -1656,12 +1764,32 @@ export function supportGuoba() {
           }
         },
         {
-          field: 'memoryContextLimit',
-          label: '对话记忆数量限制',
-          bottomHelpMessage: '每次对话最多附加多少条记忆到上下文中，按重要性排序',
+          field: 'memorySummaryLimit',
+          label: '记忆摘要条数上限',
+          bottomHelpMessage: '每个记忆文件的 Summary 区最多保留多少条精简摘要',
+          component: 'InputNumber',
+          componentProps: {
+            min: 3,
+            step: 1
+          }
+        },
+        {
+          field: 'memoryRelevantFactsLimit',
+          label: '相关记忆补充条数',
+          bottomHelpMessage: '每次对话从 Facts 中额外挑选多少条相关记忆加入上下文',
           component: 'InputNumber',
           componentProps: {
             min: 1,
+            step: 1
+          }
+        },
+        {
+          field: 'memoryPromptMaxChars',
+          label: '记忆上下文字符上限',
+          bottomHelpMessage: '每次前置到用户消息的长期记忆上下文最大字符数，用于控制 token 消耗',
+          component: 'InputNumber',
+          componentProps: {
+            min: 400,
             step: 1
           }
         },
@@ -1685,7 +1813,7 @@ export function supportGuoba() {
               '{\n' +
               '  "mcpServers": {\n' +
               '    "nocturne_memory": {\n' +
-              '      "enabled": false,\n' +
+              '      "enabled": true,\n' +
               '      "command": "python",\n' +
               '      "args": ["/root/nocturne_memory/backend/mcp_server.py""]\n' +
               '    }\n' +
@@ -1700,18 +1828,6 @@ export function supportGuoba() {
         {
           label: '呆毛版 机器人cos设置',
           component: 'Divider'
-        },
-        {
-          field: 'tts_First_person',
-          label: 'AI的第一人称',
-          bottomHelpMessage: '指定某些情况指定回复下AI的第一人称，用于戳一戳文案、AI回应第一人称呼叫；重启生效',
-          component: 'Input'
-        },
-        {
-          field: 'chat_for_First_person',
-          label: 'AI回应第一人称呼叫',
-          bottomHelpMessage: 'AI会回应包含其第一人称的信息。修改AI的第一人称后该功能重启生效。如果不触发，则考虑指令冲突，例如先去锅巴把喵仔设置里面的机器人别名给删掉',
-          component: 'Switch'
         },
         {
           field: 'isConvertSentenceToArrayReply',
@@ -1950,6 +2066,34 @@ export function supportGuoba() {
           component: 'InputNumber'
         },
         {
+          label: 'Prompt Gallery 画图记录',
+          component: 'Divider'
+        },
+        {
+          field: 'enablePromptGallery',
+          label: '启用画图记录',
+          bottomHelpMessage: '开启后，AI画图时将自动标注标签，并将记录（prompt、插件、图片、标签）推送到下方配置的 GitHub 仓库。首次推送时自动上传展示页面（index.html）和 Netlify 配置。浏览方式二选一：① GitHub Pages：仓库 Settings → Pages → Source 选对应分支 → 保存即可通过 https://用户名.github.io/仓库名 访问；② Netlify（国内更快）：https://app.netlify.com → Import from Git → 选择该仓库 → 直接 Deploy',
+          component: 'Switch'
+        },
+        {
+          field: 'promptGalleryRepo',
+          label: 'GitHub 仓库',
+          bottomHelpMessage: '画图记录推送的目标仓库（需新建空白仓库，建议使用私有仓库），格式：用户名/仓库名，例如：myuser/prompt-gallery。首次推送时会自动上传展示页面和 Netlify 配置，可在 https://app.netlify.com 导入该仓库部署，国内访问更快',
+          component: 'Input'
+        },
+        {
+          field: 'promptGalleryToken',
+          label: 'GitHub Token',
+          bottomHelpMessage: '具有仓库写入权限的 GitHub Personal Access Token。获取步骤：① 打开 https://github.com/settings/tokens → Generate new token (classic) ② 勾选 repo 权限 ③ 生成并复制 token 粘贴到此处',
+          component: 'InputPassword'
+        },
+        {
+          field: 'promptGalleryPassword',
+          label: '访问密码',
+          bottomHelpMessage: '设置后，gallery.json 将以 AES-256-GCM 加密推送，查看画廊页面时需输入此密码才能解密浏览。留空则不加密，数据为公开明文。建议使用私有仓库 + 密码双重保护',
+          component: 'InputPassword'
+        },
+        {
           label: '杂项',
           component: 'SOFT_GROUP_BEGIN'
         },
@@ -2053,7 +2197,7 @@ export function supportGuoba() {
           }
         },
         {
-          label: '主动打招呼（已失效）',
+          label: '主动打招呼',
           component: 'Divider'
         },
         {

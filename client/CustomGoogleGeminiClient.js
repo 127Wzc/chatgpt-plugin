@@ -292,11 +292,10 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     }
     if (systemMessage) {
       body.system_instruction = {
-        parts: {
-          text: systemMessage
-        }
+        parts: [{ text: systemMessage }] 
       }
     }
+
     if (this.tools?.length > 0) {
       body.tools.push({
         function_declarations: this.tools.map(tool => tool.function())
@@ -342,6 +341,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       method: 'POST',
       body: JSON.stringify(body),
       headers: {
+        'Content-Type': 'application/json',
         'x-goog-api-key': this._key
       }
     })
@@ -394,6 +394,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
     responseContent = response.candidates[0].content
     let groundingMetadata = response.candidates[0].groundingMetadata
+    // 当模型没按要求写对参数时
     if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL') {
       return await executeRetry(`遇到 MALFORMED_FUNCTION_CALL 错误`, () => {
         throw new Error('遇到 MALFORMED_FUNCTION_CALL 错误,重试次数已用完')
@@ -495,10 +496,10 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
           // execute function
           try {
             let isAdmin = ['admin', 'owner'].includes(this.e.sender.role) || (this.e.group?.is_admin && this.e.isMaster)
-            let isOwner = ['owner'].includes(this.e.sender.role) || (this.e.group?.is_owner && this.e.isMaster)
+            // let isOwner = ['owner'].includes(this.e.sender.role) || (this.e.group?.is_owner && this.e.isMaster)
             let args = Object.assign(fc.args, {
               isAdmin,
-              isOwner,
+              // isOwner,
               sender: this.e.sender.user_id,
               mode: 'gemini'
             })

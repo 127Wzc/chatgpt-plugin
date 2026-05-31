@@ -30,6 +30,7 @@
     "p-timeout": "^6.1.2",
     "quick-lru": "6.1.1",
     "random": "^4.1.0",
+    "sharp": "^0.33.5",
     "undici": "^5.21.0",
     "uuid": "^9.0.0",
     "ws": "^8.13.0"
@@ -42,10 +43,10 @@
     "node-silk": "^0.1.0",
     "nodejs-pptx": "^1.2.4",
     "pdfjs-dist": "^3.11.174",
-    "sharp": "^0.32.6",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/uuid": "^11.0.0",
     "ts-node": "^10.9.1",
     "ts-node-register": "^1.0.0"
   },

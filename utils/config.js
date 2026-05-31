@@ -228,7 +228,10 @@ const defaultConfig = {
   amapKey: '',
   azSerpKey: '',
   tavilyKey: '',
-  serpSourceArr: ["SerpImageTool_Baidu", "Bilibili_SearchVideoTool", "Send163_MusicTool", "Weather_Tool", "geminiSearchTool", "SendQQ_MusicTool"],
+  serpSourceArr: ["SerpImageTool_Baidu", "Bilibili_SearchVideoTool", "Send163_MusicTool", "Weather_Tool", "geminiSearchTool", "SendQQ_MusicTool", "GithubAPI"],
+  toolDefaultArr: ["SendPicture", "SendVideo", "QueryUserinfo", "BlockUser"],
+  toolGameQueryArr: ["QueryStarRail", "QueryGenshin"],
+  toolGroupAdminArr: ["EditCard", "Jinyan", "KickOut", "SetTitle", "HandleMsg"],
   extraUrl: '',
   smartMode: false,
   // claude2
@@ -315,7 +318,15 @@ const defaultConfig = {
   isProcessCQAtCode: true,
   getCurrentTime: true,
   poke_userIDs: true,
+  agent_MarkmapToolSwitch: false,
   agent_SandboxSwitch: false,
+  // Prompt Gallery 画图记录
+  enablePromptGallery: false, // 是否启用画图记录（含 tag 标注，推送到 GitHub 仓库）
+  promptGalleryRepo: '', // GitHub 仓库地址，如 'user/repo'（建议使用私有仓库）
+  promptGalleryBranch: 'main', // 推送到的分支
+  promptGalleryToken: '', // GitHub Personal Access Token
+  promptGalleryFilePath: 'gallery.json', // JSON 文件在仓库中的路径
+  promptGalleryPassword: '', // 画廊访问密码，设置后 gallery.json 将被 AES-256 加密，查看页面需输入密码
   auto_makeForwardMsg: 2000,
   getPixivTool: false,
   getPixiv18Tool: false,
@@ -324,6 +335,9 @@ const defaultConfig = {
   gemini_temperature: 0.9,
   mediaMaxSizeInMB: 5,
   enableEmojiLikeTool: true,
+  disable_SendAvatarTool: true,
+  generateMathRender_ToolSwitch: false,
+  enableUserProfileTool: false,
   mediaRecognitionSource: "Orignal",
   mediaRecognitionGeminiTool: true,
   ScheduleTask_Tool: true,
@@ -334,6 +348,7 @@ const defaultConfig = {
   rateLimiting: 0,
   chatgptBlockCount: 50,
   TTSAudio_Tool: false,
+  enableManualSendTTSAudio: false,
   replyConfirmType: 111,
   baiduAppBuilderKey: "",
 
@@ -351,7 +366,7 @@ const defaultConfig = {
   mcpServers: `{
   "mcpServers": {
     "nocturne_memory": {
-      "enabled": false,
+      "enabled": true,
       "command": "python",
       "args": ["/root/nocturne_memory/backend/mcp_server.py"],
       "env": {
@@ -479,7 +494,7 @@ export const Config = new Proxy(config, {
     }
     else if (property === 'get_geminiModels') {
       return function () {
-        const defaultArr = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite-preview']
+        const defaultArr = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']
         try {
           const fetchModels = Array.isArray(target.geminiModelsByFetch) ? target.geminiModelsByFetch : [];
           return lodash.uniq([...defaultArr, ...fetchModels]);

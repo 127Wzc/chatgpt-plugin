@@ -48,18 +48,18 @@ export class Entertainment extends plugin {
           reg: `^(${emojiRegex()}){2}$`,
           fnc: 'combineEmoj'
         },
-        // {
-        //   reg: '^#?(今日词云|群友在聊什么)$',
-        //   fnc: 'wordcloud'
-        // },
-        // {
-        //   reg: '^#(|最新)词云(\\d{1,2}h{0,1}|)$',
-        //   fnc: 'wordcloud_latest'
-        // },
-        // {
-        //   reg: '^#(我的)?(本月|本周|今日)?词云$',
-        //   fnc: 'wordcloud_new'
-        // },
+        {
+          reg: '^#群友在聊什么$',
+          fnc: 'wordcloud'
+        },
+        {
+          reg: '^#(最新)?词云(\\d{1,2}h{0,1}|)$',
+          fnc: 'wordcloud_latest'
+        },
+        {
+          reg: '^#(我|他|她|它)?的?(本月|本周|今日)?词云$',
+          fnc: 'wordcloud_new'
+        },
         {
           reg: '^#((寄批踢|gpt|GPT)?翻[sS]*|chatgpt翻译帮助)',
           fnc: 'translate'
@@ -254,10 +254,10 @@ ${translateLangLabels}
       let groupId = e.group_id
       let lock = await redis.get(`CHATGPT:WORDCLOUD:${groupId}`)
       if (lock) {
-        await this.reply('别着急，上次统计还没完呢')
+        await this.reply('别着急，上次统计还没完呢', true, { recallMsg: 100 })
         return true
       }
-      await this.reply('在统计啦，请稍等...')
+      await this.reply('在统计啦，请稍等...', true, { recallMsg: 100 })
       await redis.set(`CHATGPT:WORDCLOUD:${groupId}`, '1', { EX: 600 })
       try {
         let img = await makeWordcloud(e, e.group_id)
@@ -268,7 +268,7 @@ ${translateLangLabels}
       }
       await redis.del(`CHATGPT:WORDCLOUD:${groupId}`)
     } else {
-      await this.reply('请在群里发送此命令')
+      await this.reply('请在群里发送此命令', true, { recallMsg: 100 })
     }
   }
 
@@ -277,7 +277,7 @@ ${translateLangLabels}
       let groupId = e.group_id
       let lock = await redis.get(`CHATGPT:WORDCLOUD:${groupId}`)
       if (lock) {
-        await this.reply('别着急，上次统计还没完呢')
+        await this.reply('别着急，上次统计还没完呢', true, { recallMsg: 100 })
         return true
       }
 
@@ -286,10 +286,10 @@ ${translateLangLabels}
       const duration = !match[1] ? 12 : parseInt(match[1]) // default 12h
 
       if (duration > 24) {
-        await this.reply('最多只能统计24小时内的记录哦，你可以使用#本周词云和#本月词云获取更长时间的统计~')
+        await this.reply('最多只能统计24小时内的记录哦，你可以使用#本周词云和#本月词云获取更长时间的统计~', true, { recallMsg: 100 })
         return false
       }
-      await this.reply('在统计啦，请稍等...')
+      await this.reply('在统计啦，请稍等...', true, { recallMsg: 100 })
 
       await redis.set(`CHATGPT:WORDCLOUD:${groupId}`, '1', { EX: 600 })
       try {
@@ -301,7 +301,7 @@ ${translateLangLabels}
       }
       await redis.del(`CHATGPT:WORDCLOUD:${groupId}`)
     } else {
-      await this.reply('请在群里发送此命令')
+      await this.reply('请在群里发送此命令', true, { recallMsg: 100 })
     }
   }
 
@@ -309,19 +309,24 @@ ${translateLangLabels}
     if (e.isGroup) {
       let groupId = e.group_id
       let userId
-      if (e.msg.includes('我的')) {
+      if (e.msg.includes('我')) {
         userId = e.sender.user_id
       }
       let at = e.message.find(m => m.type === 'at')
-      if (at) {
-        userId = at.qq
+      if (e.msg.includes('他') || e.msg.includes('她') || e.msg.includes('它')) {
+        if (at)
+          userId = at.qq
+        else {
+          await this.reply('请At一位群友', true, { recallMsg: 100 })
+          return true
+        }
       }
       let lock = await redis.get(`CHATGPT:WORDCLOUD_NEW:${groupId}_${userId}`)
       if (lock) {
-        await this.reply('别着急，上次统计还没完呢')
+        await this.reply('别着急，上次统计还没完呢', true, { recallMsg: 100 })
         return true
       }
-      await this.reply('在统计啦，请稍等...')
+      await this.reply('在统计啦，请稍等...', true, { recallMsg: 100 })
       let duration = 24
       if (e.msg.includes('本周')) {
         const now = new Date() // Get the current date and time
@@ -352,7 +357,7 @@ ${translateLangLabels}
       }
       await redis.del(`CHATGPT:WORDCLOUD_NEW:${groupId}_${userId}`)
     } else {
-      await this.reply('请在群里发送此命令')
+      await this.reply('请在群里发送此命令', true, { recallMsg: 100 })
     }
   }
 
