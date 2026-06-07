@@ -11,6 +11,7 @@ import {
 } from '../utils/common.js'
 import { convertFacesAndCQCode } from '../utils/face.js'
 import { Config } from '../utils/config.js'
+import { syncInnerOs } from '../utils/innerOs.js';
 
 const BASEURL = 'https://generativelanguage.googleapis.com'
 
@@ -114,7 +115,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
    *     onProgress: function?,
    *     functionResponse?: FunctionResponse | FunctionResponse[],
    *     system: string?,
-   *     image: string?,
    *     video: string?,
    *     media: { mimeType: string, data: string }?,
    *     maxOutputTokens: number?,
@@ -178,6 +178,13 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       // 截取最新的 maxHistory 条记录，确保开头是 user，结尾是 model
       history = history.slice(-maxHistory);
     }
+
+    // 面包版 思考模式/全局破限：确保第一条 user 消息使用最新配置，并持久化到 Redis
+    syncInnerOs(history, opt.paimon_globalInnerOs, {
+      getText: m => m.parts?.[0]?.text ?? '',
+      setText: (m, t) => { if (m.parts?.[0]) m.parts[0].text = t },
+      upsert: m => this.upsertMessage(m),
+    })
 
     let systemMessage = opt.system
 
@@ -244,22 +251,24 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         parentMessageId: opt.parentMessageId || undefined
       }
 
-    // 逻辑：优先使用 media (带明确类型)，其次 video (默认为MP4)，最后 fallback 到 image (默认为JPEG)
-    // 推荐以后都使用 opt.media
+    // 记录点: opt.media
+    // 逻辑：使用 media (带明确类型) 传递图片或视频
     if (opt.media) {
+      let mime_type = opt.media.mimeType;
+      let data = opt.media.data;
+      // 去除可能携带的 data URL scheme 头部
+      if (data.startsWith('data:')) {
+        const match = data.match(/^data:(.*?);base64,(.*)$/);
+        if (match) {
+          mime_type = mime_type || match[1];
+          data = match[2];
+        }
+      }
       // 支持通用媒体类型（视频、不同格式图片）
       thisMessage.parts.push({
         inline_data: {
-          mime_type: opt.media.mimeType, // 例如 'video/mp4' 或 'image/png'
-          data: opt.media.data
-        }
-      })
-    } else if (opt.image) {
-      // 旧版图片参数兼容
-      thisMessage.parts.push({
-        inline_data: {
-          mime_type: 'image/jpeg',
-          data: opt.image
+          mime_type: mime_type, // 例如 'video/mp4' 或 'image/png'
+          data: data
         }
       })
     }
@@ -290,9 +299,14 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       },
       tools: []
     }
+    if (opt.thinkingLevel) {
+      body.generationConfig.thinkingConfig = {
+        thinkingLevel: opt.thinkingLevel
+      }
+    }
     if (systemMessage) {
       body.system_instruction = {
-        parts: [{ text: systemMessage }] 
+        parts: [{ text: systemMessage }]
       }
     }
 
@@ -325,7 +339,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     if (opt.codeExecution) {
       body.tools.push({ code_execution: {} })
     }
-    // if (opt.image) {
+    // if (opt.media) {
     //   delete body.tools
     //   delete body.tool_config
     // }
@@ -392,10 +406,13 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       });
     }
 
-    responseContent = response.candidates[0].content
-    let groundingMetadata = response.candidates[0].groundingMetadata
+    const candidate = response.candidates[0]
+    responseContent = candidate.content
+    let groundingMetadata = candidate.groundingMetadata
+    const finishReason = candidate.finishReason || 'UNKNOWN'
+
     // 当模型没按要求写对参数时
-    if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL') {
+    if (finishReason === 'MALFORMED_FUNCTION_CALL') {
       return await executeRetry(`遇到 MALFORMED_FUNCTION_CALL 错误`, () => {
         throw new Error('遇到 MALFORMED_FUNCTION_CALL 错误,重试次数已用完')
       });
@@ -403,16 +420,29 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
     // 检查 responseContent 是否为空
     if (!responseContent || !responseContent.parts || responseContent.parts.length === 0) {
-      return await executeRetry(`responseContent.parts 为空`, () => {
-        throw new Error('responseContent.parts 为空,重试次数已用完')
-      });
-    }
+      // 检查是否因为策略拦截导致内容为空
+      const blockedReasons = ['SAFETY', 'RECITATION', 'BLOCKLIST', 'PROHIBITED_CONTENT', 'SPII', 'OTHER']
+      if (blockedReasons.includes(finishReason)) {
+        return await executeRetry(`API返回内容被拦截 (finishReason: ${finishReason})`, () => {
+          throw new Error(`API返回内容被拦截 (finishReason: ${finishReason}),重试次数已用完`)
+        });
+      }
 
+      if (finishReason === 'STOP') {
+        // 模型正常生成结束，但返回了空内容，赋一个默认空文本以防止后续解构报错
+        responseContent = { role: 'model', parts: [{ text: '' }] }
+      } else {
+        // 其他未知中断情况
+        return await executeRetry(`responseContent.parts 为空 (finishReason: ${finishReason})`, () => {
+          throw new Error(`responseContent.parts 为空 (finishReason: ${finishReason}),重试次数已用完\n详情: ${JSON.stringify(candidate)}`)
+        });
+      }
+    }
     // todo 空回复也可以重试
     if (responseContent?.parts?.filter(i => i.functionCall).length > 0) {
       const toolNames = responseContent.parts.filter(i => i.functionCall).map(i => i.functionCall.name);
       /** 工具调用最大轮次数 */
-      const maxToolRounds = 3
+      const maxToolRounds = Config.llm_maxToolRounds
       // 最多允许连续 maxToolRounds 轮工具调用，不限制单次并行调用的工具数量
       // 注意：不再按工具名判断"重复调用"，同一工具不同 action 是合法场景（如 scheduleGroupTask 的 list→remove）
       const toolLimitReached = opt.toolChain.depth >= maxToolRounds;
@@ -552,6 +582,9 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         depth: opt.toolChain.depth + 1,
         calledTools: [...opt.toolChain.calledTools, ...toolNames]
       };
+
+      // 防止在工具回调的轮次中再次携带媒体文件，避免 API 报错 Request contains an invalid argument
+      delete responseOpt.media
 
       // 达到工具调用上限时，强制下一轮不使用工具，让模型必须生成文本回复
       if (toolLimitReached) {

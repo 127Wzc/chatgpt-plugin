@@ -382,7 +382,10 @@ class Core {
           if (imageUrl) {
             const base64String = await getImageBase64(imageUrl);
             if (base64String) {
-              opt.image = base64String;
+              option.media = {
+                mimeType: 'image/jpeg',
+                data: base64String
+              };
             }
           }
         }
@@ -662,16 +665,22 @@ class Core {
         parentMessageId: conversation.parentMessageId,
         conversationId: conversation.conversationId,
         search: Config.geminiEnableGoogleSearch, // Gemini 原生搜索，开启后无法使用智能模式，默认关闭
-        codeExecution: Config.geminiEnableCodeExecution // Gemini 原生代码执行，开启后无法使用智能模式，默认关闭
+        codeExecution: Config.geminiEnableCodeExecution, // Gemini 原生代码执行，开启后无法使用智能模式，默认关闭
+        paimon_globalInnerOs: Config.paimon_globalInnerOs,
+        thinkingLevel: Config.geminiThinkingLevel || ''
       }
 
+      // 记录点: opt.media
       if (Config.mediaRecognitionSource == "Orignal") {
         // const image = await parseSourceImg(e)
         let imageUrl = e.img ? e.img[0] : undefined;
         if (imageUrl) {
           const base64String = await getImageBase64(imageUrl);
           if (base64String) {
-            option.image = base64String;
+            option.media = {
+              mimeType: 'image/jpeg',
+              data: base64String
+            };
           }
         }
       }
@@ -737,6 +746,9 @@ class Core {
       if (Config.model) {
         completionParams.model = Config.model
       }
+      if (Config.reasoningEffort) {
+        completionParams.reasoning_effort = Config.reasoningEffort
+      }
       const currentDate = new Date().toISOString().split('T')[0]
       let promptPrefix = `You are ${Config.assistantLabel} ${useCast?.api || opt.system.api || defaultPropmtPrefix}
         Current date: ${currentDate}`
@@ -798,6 +810,7 @@ class Core {
         // systemMessage: promptPrefix
       }
       option.systemMessage = system
+      option.paimon_globalInnerOs = Config.paimon_globalInnerOs
       if (conversation) {
         if (!conversation.conversationId) {
           conversation.conversationId = uuid()
@@ -893,7 +906,7 @@ class Core {
           /** 工具调用轮次计数器 */
           let toolRoundCount = 0
           /** 工具调用最大轮次数 */
-          const maxToolRounds = 3
+          const maxToolRounds = Config.llm_maxToolRounds
           // 只要模型返回了需要调用工具，且没有超过最大轮次，就继续循环
           while ((msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) && toolRoundCount < maxToolRounds) {
             toolRoundCount++
@@ -1023,6 +1036,11 @@ class Core {
           // 判断退出原因，如果是达到最大轮次强制退出的，打印警告
           if ((msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) && toolRoundCount >= maxToolRounds) {
             logger.warn(`工具调用已达最大轮次上限 ${maxToolRounds} 轮，强制终止工具循环`)
+            // 清除残留的 tool_calls，防止返回含 tool_calls 但无对应 tool response 的消息破坏对话历史
+            msg.functionCall = undefined
+            msg.toolCalls = undefined
+            // 同步更新 Redis 中已存储的消息副本，防止下一轮加载历史时仍携带 tool_calls
+            upsertMessage(msg).catch(err => logger.warn('[chatgpt] 清理存储中的工具调用记录失败', err))
           }
         } catch (err) {
           if (err.message?.indexOf('context_length_exceeded') > 0) {
