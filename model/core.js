@@ -82,6 +82,7 @@ import { UserMemory } from '../utils/userMemory.js'
 import { GenerateMarkmapTool } from '../utils/tools/GenerateMarkmapTool.js'
 import { UserProfileTool } from '../utils/tools/UserProfileTool.js'
 import { GenerateMathRenderTool } from '../utils/tools/GenerateMathRenderTool.js'
+import { GenerateGraphCalculatorTool } from '../utils/tools/GenerateGraphCalculatorTool.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -1187,6 +1188,7 @@ async function collectTools(e) {
     { condition: Config.TTSAudio_Tool, ToolClass: TTSAudioTool },
     { condition: Config.enableUserProfileTool, ToolClass: UserProfileTool },
     { condition: Config.generateMathRender_ToolSwitch, ToolClass: GenerateMathRenderTool },
+    { condition: Config.generateGraphCalculator_ToolSwitch, ToolClass: GenerateGraphCalculatorTool },
   ];
 
   optionalTools.forEach(({ condition, ToolClass }) => {

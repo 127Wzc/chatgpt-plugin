@@ -339,6 +339,7 @@ const defaultConfig = {
   enableEmojiLikeTool: true,
   disable_SendAvatarTool: true,
   generateMathRender_ToolSwitch: false,
+  generateGraphCalculator_ToolSwitch: false,
   enableUserProfileTool: false,
   mediaRecognitionSource: "Orignal",
   mediaRecognitionGeminiTool: true,
