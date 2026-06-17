@@ -689,7 +689,7 @@ function stripInvalidGeminiFunctionTurns(history, stats) {
   for (let i = 0; i < history.length; i++) {
     const content = history[i]
     if (isGeminiFunctionResponse(content)) {
-      if (isGeminiFunctionCall(cleaned[cleaned.length - 1])) {
+      if (isMatchingGeminiFunctionResponse(cleaned[cleaned.length - 1], content)) {
         cleaned.push(content)
       } else {
         stats.droppedFunctionResponse++
@@ -698,7 +698,9 @@ function stripInvalidGeminiFunctionTurns(history, stats) {
     }
 
     if (isGeminiFunctionCall(content)) {
-      if (isMatchingGeminiFunctionResponse(content, history[i + 1])) {
+      const previousContent = cleaned[cleaned.length - 1]
+      const hasValidPreviousTurn = previousContent?.role === 'user'
+      if (hasValidPreviousTurn && isMatchingGeminiFunctionResponse(content, history[i + 1])) {
         cleaned.push(content)
         continue
       }
