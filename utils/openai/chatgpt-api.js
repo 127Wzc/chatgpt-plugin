@@ -29,6 +29,43 @@ function getStoredMessageRole(role) {
     }
     return 'user';
 }
+function hasAssistantFunctionTurn(message) {
+    return message.role === 'assistant' && (!!message.function_call || !!message.tool_calls?.length);
+}
+function isFunctionTurnSequenceValid(messages, systemMessageOffset) {
+    const pendingToolCallIds = new Set();
+    let previousRole;
+    for (let i = systemMessageOffset; i < messages.length; i++) {
+        const message = messages[i];
+        if (message.role !== 'tool' && pendingToolCallIds.size > 0) {
+            return false;
+        }
+        if (message.role === 'tool') {
+            if (!message.tool_call_id || !pendingToolCallIds.has(message.tool_call_id)) {
+                return false;
+            }
+            pendingToolCallIds.delete(message.tool_call_id);
+            previousRole = message.role;
+            continue;
+        }
+        if (hasAssistantFunctionTurn(message)) {
+            if (previousRole !== 'user' && previousRole !== 'tool') {
+                return false;
+            }
+            if (!message.tool_calls?.length) {
+                return false;
+            }
+            for (const toolCall of message.tool_calls) {
+                if (!toolCall.id) {
+                    return false;
+                }
+                pendingToolCallIds.add(toolCall.id);
+            }
+        }
+        previousRole = message.role;
+    }
+    return pendingToolCallIds.size === 0;
+}
 export class ChatGPTAPI {
     _apiKey;
     _apiBaseUrl;
@@ -559,7 +596,8 @@ export class ChatGPTAPI {
             }
             const isValidPrompt = nextNumTokensEstimate <= promptBudget;
             const includesOnlyCurrentTurn = nextMessages.length === systemMessageOffset + currentRequestMessages.length;
-            if (includesOnlyCurrentTurn || isValidPrompt) {
+            const isValidFunctionTurnSequence = isFunctionTurnSequenceValid(nextMessages, systemMessageOffset);
+            if ((includesOnlyCurrentTurn || isValidPrompt) && isValidFunctionTurnSequence) {
                 messages = nextMessages;
                 numTokens = nextNumTokensEstimate;
                 keptHistoryMessagesCount = nextHistoryMessagesCount;
@@ -614,6 +652,10 @@ export class ChatGPTAPI {
             parentMessageId = parentMessage.parentMessageId;
             if (!parentRequestMessage) {
                 stopReason = 'skip_unsupported_parent';
+                continue;
+            }
+            if (hasAssistantFunctionTurn(parentRequestMessage)) {
+                stopReason = 'skip_dangling_function_turn';
                 continue;
             }
             nextMessages = nextMessages.slice(0, systemMessageOffset).concat([
