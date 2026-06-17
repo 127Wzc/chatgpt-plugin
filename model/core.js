@@ -1,4 +1,7 @@
-import { Config, defaultOpenAIAPI } from '../utils/config.js'
+import {
+  Config,
+  // defaultOpenAIAPI
+} from '../utils/config.js'
 import McpManager from '../utils/mcp.js'
 import {
   extractContentFromFile,
@@ -7,7 +10,7 @@ import {
   getMasterQQ,
   getUin,
   getUserData,
-  isCN
+  // isCN
 } from '../utils/common.js'
 import { KeyvFile } from 'keyv-file'
 import SydneyAIClient from '../utils/SydneyAIClient.js'
@@ -56,6 +59,7 @@ import { BingAIClient } from '../client/CopilotAIClient.js'
 import Keyv from 'keyv'
 import crypto from 'crypto'
 import { getImageBase64 } from '../utils/paimonFuction.js'
+import { sendToolCallForwardMsg } from '../utils/toolForward.js'
 import { GithubAPITool } from '../utils/tools/GithubTool.js'
 import { Misaka_WebSearchTool } from '../utils/tools/Misaka_WebSearchTool.js'
 import { TavilySearchAndExtractTool } from '../utils/tools/TavilySearchAndExtractTool.js'
@@ -74,6 +78,8 @@ import { RecognitionResultsByGeminiTool } from '../utils/tools/RecognitionResult
 import { EmojiTool } from '../utils/tools/EmojiTool.js'
 import { MemoryTool } from '../utils/tools/MemoryTool.js'
 import { EmojiLikeTool } from '../utils/tools/EmojiLikeTool.js'
+import { AnythingLLMQueryTool } from '../utils/anythingllm/AnythingLLMQueryTool.js'
+import { AnythingLLMWorkspaceTool } from '../utils/anythingllm/AnythingLLMWorkspaceTool.js'
 import { ScheduleTaskTool } from '../utils/tools/ScheduleTaskTool.js'
 import { TTSAudioTool } from '../utils/tools/TTSAudioTool.js'
 import { SendQQMusicTool } from '../utils/tools/SendQQMusicTool.js'
@@ -577,7 +583,9 @@ class Core {
           msg = await this.qwenApi.sendMessage(prompt, option)
           if (Config.debug)
             logger.info(JSON.stringify(msg, null, 2))
+          let toolRoundCount = 0
           while (msg.functionCall || (msg.toolCalls && msg.toolCalls.length > 0)) {
+            toolRoundCount++
             if (msg.text) {
               await e.reply(msg.text.replace('\n\n\n', '\n'))
             }
@@ -598,6 +606,9 @@ class Core {
               break;
             }
 
+            logger.info(`[Chatgpt][Qwen] execution function: ${JSON.stringify({ name, args })}`)
+            const toolArgsForForward = { ...args }
+
             // 感觉换成targetGroupIdOrUserQQNumber这种表意比较清楚的变量名，效果会好一丢丢
             if (!args.groupId) {
               args.groupId = e.group_id + '' || e.sender.user_id + ''
@@ -612,6 +623,14 @@ class Core {
               sender
             }, args), e)
             logger.mark(`function ${name} execution result: ${functionResult}`)
+            logger.info(`[Chatgpt][Qwen] function ${name} execution result: ${JSON.stringify(functionResult)}`)
+            sendToolCallForwardMsg(e, [{
+              platform: '千问',
+              round: toolRoundCount,
+              name,
+              args: toolArgsForForward,
+              result: functionResult
+            }], '千问工具调用与返回')
             option.parentMessageId = msg.id
             option.name = name
             // 不然普通用户可能会被openai限速
@@ -784,13 +803,14 @@ class Core {
         maxResponseTokens: Config.apiMaxToken,
         chatgptBlockCount: Config.chatgptBlockCount,
       }
-      if (!Config.openAiForceUseReverse) {
-        let openAIAccessible = (Config.proxy || !(await isCN())) // 配了代理或者服务器在国外，默认认为不需要反代
-        if (opts.apiBaseUrl !== defaultOpenAIAPI && openAIAccessible) {
-          // 如果配了proxy(或者不在国内)，而且有反代，但是没开启强制反代,将baseurl删掉
-          delete opts.apiBaseUrl
-        }
-      }
+
+      // if (!Config.openAiForceUseReverse) {
+      //   let openAIAccessible = (Config.proxy || !(await isCN())) // 配了代理或者服务器在国外，默认认为不需要反代
+      //   if (opts.apiBaseUrl !== defaultOpenAIAPI && openAIAccessible) {
+      //     // 如果配了proxy(或者不在国内)，而且有反代，但是没开启强制反代,将baseurl删掉
+      //     delete opts.apiBaseUrl
+      //   }
+      // }
 
       // const client = new OpenAI({
       //   apiKey: Config.apiKey,
@@ -942,6 +962,7 @@ class Core {
             }]
             let previousMessageId = msg.id
             let shouldSkipModelResponse = true
+            const toolForwardRecords = []
 
             for (const toolCall of pendingToolCalls) {
               let name = toolCall.function.name
@@ -953,6 +974,7 @@ class Core {
               }
 
               logger.info(`[Chatgpt][API] execution function: ${JSON.stringify({ name, args })}`)
+              const toolArgsForForward = { ...args }
 
               if (!args.groupId) {
                 args.groupId = e.group_id + '' || e.sender.user_id + ''
@@ -983,6 +1005,14 @@ class Core {
               shouldSkipModelResponse = shouldSkipModelResponse &&
                 !!toolEntry?.tool?.shouldSkipModelResponse?.()
 
+              toolForwardRecords.push({
+                platform: 'OpenAI API',
+                round: toolRoundCount,
+                name,
+                args: toolArgsForForward,
+                result: functionResult
+              })
+
               const toolMessageId = crypto.randomUUID()
               toolMessages.push({
                 id: toolMessageId,
@@ -995,6 +1025,8 @@ class Core {
               })
               previousMessageId = toolMessageId
             }
+
+            sendToolCallForwardMsg(e, toolForwardRecords, 'OpenAI API工具调用与返回')
 
             option.parentMessageId = msg.id
             option.appendMessages = toolMessages
@@ -1189,6 +1221,8 @@ async function collectTools(e) {
     { condition: Config.enableUserProfileTool, ToolClass: UserProfileTool },
     { condition: Config.generateMathRender_ToolSwitch, ToolClass: GenerateMathRenderTool },
     { condition: Config.generateGraphCalculator_ToolSwitch, ToolClass: GenerateGraphCalculatorTool },
+    { condition: Config.anythingllm_enable, ToolClass: AnythingLLMQueryTool },
+    { condition: Config.anythingllm_enable, ToolClass: AnythingLLMWorkspaceTool },
   ];
 
   optionalTools.forEach(({ condition, ToolClass }) => {

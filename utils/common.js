@@ -11,6 +11,7 @@ import { convertSpeaker, generateVitsAudio, speakers as vitsRoleList } from './t
 import VoiceVoxTTS, { supportConfigurations as voxRoleList } from './tts/voicevox.js'
 import AzureTTS, { supportConfigurations as azureRoleList } from './tts/microsoft-azure.js'
 import { translate } from './translate.js'
+import { removeCQCode } from './paimonFuction.js'
 import uploadRecord from './uploadRecord.js'
 import Version from './version.js'
 import fetch, { FormData, fileFromSync } from 'node-fetch'
@@ -942,6 +943,7 @@ export async function getGroupList(e) {
  */
 export async function generateAudio (e, pendingText, speakingEmotion, emotionDegree = 1) {
   if (!Config.ttsSpace && !Config.azureTTSKey && !Config.voicevoxSpace) return false
+  pendingText = removeCQCode(pendingText)
   let wav
   const speaker = getUserSpeaker(await getUserReplySetting(e))
   let ignoreEncode = e.adapter === 'shamrock'
@@ -1006,6 +1008,7 @@ export async function generateAudio (e, pendingText, speakingEmotion, emotionDeg
  */
 export async function generateAzureAudio (pendingText, role = '随机', speakingEmotion, emotionDegree = 1, ignoreEncode = false) {
   if (!Config.azureTTSKey) return false
+  pendingText = removeCQCode(pendingText)
   let speaker
   try {
     if (role !== '随机') {

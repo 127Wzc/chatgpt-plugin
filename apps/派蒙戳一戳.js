@@ -1,4 +1,4 @@
-import plugin from '../../../lib/plugins/plugin.js';
+﻿import plugin from '../../../lib/plugins/plugin.js';
 import cfg from '../../../lib/config/config.js'
 import common from '../../../lib/common/common.js'
 import moment from 'moment'
@@ -481,14 +481,23 @@ export class PaimonChuo extends plugin {
 
     /** 随机回复预设派蒙文案 */
     async send_paimon_msg(e) {
-        let text_number = Math.ceil(Math.random() * paimon_word_list['length'])
-        let message0 = paimon_word_list[text_number - 1].replace(/派蒙/g, Config.tts_First_person)
+        const wordList = getPokeTextReplies()
+        let text_number = Math.ceil(Math.random() * wordList['length'])
+        let message0 = wordList[text_number - 1].replace(/派蒙/g, Config.tts_First_person)
         // chuo_text_generateAndSendAudio(message0, e);
         await e.reply(message0)
     }
 
     /** 随机回复文案 */
     async send_randow_text_msg(e) {
+        const customWordList = getCustomPokeTextReplies()
+        if (customWordList.length) {
+            let text_number = Math.ceil(Math.random() * customWordList['length'])
+            let message = customWordList[text_number - 1].replace(/派蒙/g, Config.tts_First_person)
+            await e.reply(message)
+            return
+        }
+
         let mutetype = Math.ceil(Math.random() * 20)
         let message = ''
         switch (mutetype) {
@@ -553,11 +562,20 @@ export class PaimonChuo extends plugin {
                     await e.reply((`“咳咳~”派蒙开始模仿古人讲话：`).replace(/派蒙/g, Config.tts_First_person) + `“${message}”`)
                     break
                 }
+            case 10:
+                const _info = await e.bot.getGroupMemberInfo?.(e.group_id, e.operator_id) || await e.bot.pickMember?.(e.group_id, e.operator_id)
+                const _nm = _info?.card || _info?.nickname || 'i'
+                message = await get_msg_hefengwenanapi(_nm)
+                if (message) {
+                    chuo_text_generateAndSendAudio(message, e);
+                    await e.reply((`“咳咳~”派蒙开始模仿女仆讲话：`).replace(/派蒙/g, Config.tts_First_person) + `“${message}”`)
+                    break
+                }
             // case 10:
             //     message = await get_msg_wyyrp() // 句子的效果不好，禁用
             //     if (message) {
             //         chuo_text_generateAndSendAudio(message, e);
-            //         await e.reply((`“咳咳~”派蒙开始网抑云：`).replace(/派蒙/g, Config.tts_First_person) + `“${message}”`)
+            //         await e.reply((`”咳咳~”派蒙开始网抑云：`).replace(/派蒙/g, Config.tts_First_person) + `”${message}”`)
             //         break
             //     }
             case 11:
@@ -633,6 +651,18 @@ export class PaimonChuo extends plugin {
         return true;
     }
 
+}
+
+function getPokeTextReplies() {
+    const customList = getCustomPokeTextReplies()
+    return customList.length ? customList : paimon_word_list
+}
+
+function getCustomPokeTextReplies() {
+    const customText = Config.paimon_chou_custom_text
+    if (!customText) return []
+    const customList = Array.isArray(customText) ? customText : customText.toString().split(/\r?\n/)
+    return customList.map(item => item?.toString().trim()).filter(Boolean)
 }
 
 /**
@@ -741,6 +771,23 @@ async function get_msg_gushici() {
     }
 }
 
+/**和风女仆文案 返回文本/错误则返回null */
+async function get_msg_hefengwenanapi(name) {
+    let url = 'http://113.31.103.19:8848'
+    if (name) url += '?name=' + encodeURIComponent(name)
+    try {
+        let res = await fetch(url).catch((err) => logger.error(err))
+        if (!res) {
+            throw new Error('[派蒙戳一戳][和风女仆文案] 接口请求失败')
+        }
+        const data = await res.json()
+        return data.text?.trim() || null
+    }
+    catch (err) {
+        logger.error(err)
+        return null
+    }
+}
 
 /**随机疯狂星期四 返回文本/错误则返回null */
 async function get_msg_KFC() {

@@ -104,7 +104,7 @@ export function convertSentenceToArray(inputArr) {
       for (let i = 0; i < arr.length; i++) {
         tempSentence += arr[i];
         if (i % 2 !== 0 || i === arr.length - 1) {
-          let cleaned = tempSentence.replace(/。|\n$|^{|}$|^(，|,)/gm, "").trim();
+          let cleaned = tempSentence.replace(/\n$|^{|}$|^(，|,)/gm, "").trim();
           if (cleaned) {
             flatList.push(cleaned);
           }
@@ -179,6 +179,12 @@ export function convertSentenceToArray(inputArr) {
       }
     }
     logicalGroups[i] = compactedGroup;
+
+    // 每组最后一个字符串去掉末尾句号（模拟真人，分段末尾不加句号）
+    const lastItem = compactedGroup[compactedGroup.length - 1];
+    if (typeof lastItem === 'string') {
+      compactedGroup[compactedGroup.length - 1] = lastItem.replace(/。+$/g, '');
+    }
   }
 
   return logicalGroups;
@@ -342,12 +348,13 @@ export function hidePrivacyInfo(text) {
  */
 export function removeCQCode(msg) {
   if (!msg) return ''
+  const cqCodeRegex = /\[CQ[:,，][^\]]+\]/g
   // 如果是数组, 使用 reduce 进行处理和过滤
   if (Array.isArray(msg)) {
     return msg.reduce((acc, item) => {
       if (typeof item === 'string') {
         // 替换 CQ 码
-        const cleanedText = item.replace(/\[CQ:[^\]]+\]/g, '').trim()
+        const cleanedText = item.replace(cqCodeRegex, '').trim()
         // 只有当文本不为空时才推入结果数组
         if (cleanedText) {
           acc.push(cleanedText)
@@ -361,8 +368,8 @@ export function removeCQCode(msg) {
   }
   // 如果不是字符串, 直接返回原值
   if (typeof msg !== 'string') return msg
-  // 匹配 [CQ:...] 格式的 CQ 码
-  return msg.replace(/\[CQ:[^\]]+\]/g, '').trim()
+  // 匹配 [CQ:...] 和 [CQ,...] 格式的 CQ 码
+  return msg.replace(cqCodeRegex, '').trim()
 }
 
 /**

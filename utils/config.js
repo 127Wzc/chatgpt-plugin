@@ -28,7 +28,6 @@ const defaultConfig = {
   OpenAiPlatformRefreshToken: '',
   openAiForceUseReverse: false,
   apiStream: false,
-  drawCD: 30,
   model: '',
   temperature: 0.8,
   /**
@@ -112,6 +111,7 @@ const defaultConfig = {
   paimon_chou_randowLocalPic: 0.12,
   paimon_chou_dailyEnglish: 0.005,
   paimon_chou_Fighting_Back: "",
+  paimon_chou_custom_text: "",
   paimon_chou_IsSendLocalpic: true,
   paimon_chou_IsUseLoliconApi: false,
   paimon_chou_text_generateAndSendAudio: false,
@@ -163,7 +163,6 @@ const defaultConfig = {
   ttsHD: false,
   focus_CloudTranscode: false,
   initiativeChatGroups: [],
-  enableDraw: true,
   helloPrompt: '写一段话让大家来找我聊天。类似于“有人找我聊天吗？"这种风格，轻松随意一点控制在20个字以内',
   helloInterval: 3,
   helloProbability: 50,
@@ -235,6 +234,7 @@ const defaultConfig = {
   toolGroupAdminArr: ["EditCard", "Jinyan", "KickOut", "SetTitle", "HandleMsg"],
   extraUrl: '',
   smartMode: false,
+  forwardToolCallResult: false,
   llm_maxToolRounds: 3,
   // claude2
   // claudeAIOrganizationId: '',
@@ -380,6 +380,18 @@ const defaultConfig = {
     }
   }
 }`, // 通用 MCP 服务器的配置列表，JSON 格式
+
+  // AnythingLLM 知识库配置
+  anythingllm_enable: false, // 是否启用 AnythingLLM 知识库功能
+  anythingllm_baseUrl: 'http://localhost:3001', // AnythingLLM 服务地址
+  anythingllm_apiKey: '', // AnythingLLM API 密钥（在 AnythingLLM 设置中获取）
+  anythingllm_defaultWorkspace: 'general-knowledge', // 默认工作区 slug
+  anythingllm_timeout: 30000, // 请求超时时间（毫秒）
+  anythingllm_maxRetries: 3, // 最大重试次数
+  anythingllm_mode: 'query', // 查询模式: chat(带上下文对话) 或 query(仅检索)
+  anythingllm_includeSources: true, // 是否在回复中包含引用来源
+  anythingllm_cacheEnable: true, // 是否启用查询结果缓存
+  anythingllm_cacheTTL: 300000, // 缓存有效期（毫秒，默认 5 分钟）
 
 }
 const _path = process.cwd()

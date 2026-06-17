@@ -294,6 +294,10 @@ export function supportGuoba() {
           component: 'SOFT_GROUP_BEGIN'
         },
         {
+          label: '对话 通用设置',
+          component: 'Divider'
+        },
+        {
           field: 'api_default_USE',
           label: '默认使用的模型提供商',
           bottomHelpMessage: '请在本页配置好对应模型提供商的配置；如果已经对话过建议执行 `#结束全部模型对话` 避免引起404错误',
@@ -311,6 +315,24 @@ export function supportGuoba() {
           }
         },
         {
+          field: 'mediaRecognitionSource',
+          label: '内容识别来源',
+          component: 'Select',
+          bottomHelpMessage: '识别引用的图片的内容；推荐无识图能力的API选择“Gemini内容识别”，可在对话的前面加上gemini的图片/视频结果，需要配置 对话-Gemini方式 中的接口和gemini内容识别模型；',
+          componentProps: {
+            options: [
+              { label: '模型内置', value: 'Orignal' },
+              { label: 'Gemini内容识别', value: 'Gemini' },
+            ]
+          }
+        },
+        {
+          field: 'imgOcr',
+          label: '对话中图片OCR',
+          bottomHelpMessage: '调用本地适配器imageOcr图片文字识别功能（需要适配器支持）；推荐关闭该功能',
+          component: 'Switch'
+        },
+        {
           label: '以下为OpenAI API方式的配置',
           component: 'Divider'
         },
@@ -323,14 +345,11 @@ export function supportGuoba() {
         {
           field: 'openAiBaseUrl',
           label: 'OpenAI API/反代地址',
-          bottomHelpMessage: 'OpenAI兼容API服务器地址。插件在执行对话时将拼接 /chat/completions ；默认值为 https://api.openai.com/v1',
-          component: 'Input'
-        },
-        {
-          field: 'openAiForceUseReverse',
-          label: '强制使用API地址',
-          bottomHelpMessage: '强制使用 OpenAI API/反代地址 而不是走OpenAI官网链接；使用第三方API时请开启',
-          component: 'Switch'
+          bottomHelpMessage: 'OpenAI兼容API服务器地址，通常以 /v1 结尾；默认值为 https://api.openai.com/v1',
+          component: 'Input',
+          componentProps: {
+            placeholder: 'https://api.openai.com/v1'
+          }
         },
         {
           field: 'model',
@@ -883,7 +902,7 @@ export function supportGuoba() {
         {
           field: 'autoJapanese',
           label: '日语语音输出',
-          bottomHelpMessage: '语音模式时，先将机器人的文字回复翻译成日文后获取语音；需要配置 杂项-翻译来源',
+          bottomHelpMessage: '语音模式时，先将机器人的文字回复翻译成日文后获取语音，同时应用于 工具新增-智能发送语音；需要先配置 杂项-翻译来源',
           component: 'Switch'
         },
         {
@@ -1031,7 +1050,8 @@ export function supportGuoba() {
         {
           field: 'ttsSpace',
           label: '语音转换API地址',
-          bottomHelpMessage: '使用Bert-VITS2请填入https://bv2.firefly.matce.cn （已失效）；使用ai_hobbyist请填入ai_hobbyist；使用vits-uma前往duplicate空间 https://huggingface.co/spaces/ikechan8370/vits-uma-genshin-honkai 后查看api地址并填入此处（有需要请填写"语音转换huggingface反代"）；使用FishApi请填入：https://api.fish.audio；使用 siliconflow 的填写地址 https://api.siliconflow.cn/v1/audio/speech （目前呆毛推荐使用）；填入后请重启bot并F5刷新此页面将刷新 vits默认角色 列表，不同站点对应不同发音人，错误填写 vits默认角色 将无法生成语音；可用指令： #tts语音帮助',
+          // 失效的： 使用Bert-VITS2请填入https://bv2.firefly.matce.cn ；使用ai_hobbyist请填入ai_hobbyist；
+          bottomHelpMessage: '使用vits-uma前往duplicate空间 https://huggingface.co/spaces/ikechan8370/vits-uma-genshin-honkai 后查看api地址并填入此处（有需要请填写"语音转换huggingface反代"）；使用FishApi请填入：https://api.fish.audio；使用 siliconflow 请填入 https://api.siliconflow.cn/v1/audio/speech （目前呆毛推荐使用）；填入后请重启bot并F5刷新此页面将刷新 vits默认角色 列表，不同站点对应不同发音人，错误填写 vits默认角色 将无法生成语音；可用指令： #tts语音帮助',
           component: 'Input'
         },
         {
@@ -1381,7 +1401,13 @@ export function supportGuoba() {
         {
           field: 'smartMode',
           label: '智能模式 开关',
-          bottomHelpMessage: '支持对话 Api、千问、Gemini。开启后机器人可以群管、收发图片、发视频发音乐、联网搜索等。注意较费token。配合“允许机器人读取近期的群聊聊天记录”效果更佳',
+          bottomHelpMessage: '支持 OpenAI API、千问、Gemini。开启后Bot可以使用以下群管、绘画、发视频发音乐、联网搜索等工具。注意较费token。配合“允许机器人读取近期的群聊聊天记录”效果更佳',
+          component: 'Switch'
+        },
+        {
+          field: 'forwardToolCallResult',
+          label: '发送工具调用与返回',
+          bottomHelpMessage: '智能模式中，将工具调用参数和工具返回结果以合并转发发送到当前会话；默认关闭',
           component: 'Switch'
         },
         {
@@ -1419,24 +1445,6 @@ export function supportGuoba() {
         //   bottomHelpMessage: '公益接口https://cpe.ikechan8370.com 或https://misaka20001-cp-extra.hf.space；参考搭建：https://github.com/ikechan8370/chatgpt-plugin-extras；作用：图片OCR/图片ai标题/图生图前处理等',
         //   component: 'Input'
         // },
-        {
-          field: 'mediaRecognitionSource',
-          label: '内容识别来源',
-          component: 'Select',
-          bottomHelpMessage: '识别引用的图片的内容；推荐无识图能力的API选择“Gemini内容识别”，可在对话的前面加上gemini的图片/视频结果，需要配置 对话-Gemini方式 中的接口和gemini内容识别模型；',
-          componentProps: {
-            options: [
-              { label: '模型内置', value: 'Orignal' },
-              { label: 'Gemini内容识别', value: 'Gemini' },
-            ]
-          }
-        },
-        {
-          field: 'imgOcr',
-          label: '对话中图片OCR',
-          bottomHelpMessage: '调用本地适配器imageOcr图片文字识别功能（需要适配器支持）；推荐关闭该功能',
-          component: 'Switch'
-        },
         {
           field: 'serpSourceArr',
           label: '搜索/网络来源',
@@ -2048,6 +2056,15 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'paimon_chou_custom_text',
+          label: '戳一戳文本回复自定义',
+          bottomHelpMessage: '自定义戳一戳文本回复，每行一段；为空时使用内置随机文案。文案中的“派蒙”二字会按“AI的第一人称”自动替换',
+          component: 'InputTextArea',
+          componentProps: {
+            placeholder: '不要戳啦\n再戳要生气了'
+          }
+        },
+        {
           field: 'paimon_chou_IsSendLocalpic',
           label: '戳一戳发送本地图片（重启生效）',
           bottomHelpMessage: '随机本地图片地址：如果需要安装 SF插件 并把需要发送随机图片则把图片放在"云崽根目录/data/autoEmoticons/PaimonChuoYiChouPictures/"这个文件夹中，支持子文件夹和中文文件夹；当没有本地图片时则返回随机文本。为减轻Cpu负担，该目录文件每30分钟的触发戳一戳才索引一次，不触发不索引（其实也没有多少负担啦） https://github.com/AIGC-Yunzai/siliconflow-plugin。',
@@ -2229,6 +2246,102 @@ export function supportGuoba() {
           label: '访问密码',
           bottomHelpMessage: '设置后，gallery.json 将以 AES-256-GCM 加密推送，查看画廊页面时需输入此密码才能解密浏览。留空则不加密，数据为公开明文。建议使用私有仓库 + 密码双重保护',
           component: 'InputPassword'
+        },
+        {
+          label: 'AnythingLLM 知识库',
+          component: 'Divider'
+        },
+        {
+          field: 'anythingllm_enable',
+          label: '启用 AnythingLLM 知识库',
+          bottomHelpMessage: '启用后可使用 RAG 知识检索功能，AI 将能够从知识库中检索相关信息回答问题；修改后需重启生效',
+          component: 'Switch'
+        },
+        {
+          field: 'anythingllm_baseUrl',
+          label: 'AnythingLLM 服务地址',
+          bottomHelpMessage: 'AnythingLLM 服务的完整地址，例如：http://localhost:3001 或 http://192.168.1.100:3001',
+          component: 'Input',
+          componentProps: {
+            placeholder: 'http://localhost:3001'
+          }
+        },
+        {
+          field: 'anythingllm_apiKey',
+          label: 'API 密钥',
+          bottomHelpMessage: '在 AnythingLLM 管理界面中生成的 API Key。路径：Settings → API Keys → Generate New API Key',
+          component: 'InputPassword',
+          componentProps: {
+            placeholder: '请输入 AnythingLLM API Key'
+          }
+        },
+        {
+          field: 'anythingllm_defaultWorkspace',
+          label: '默认工作区',
+          bottomHelpMessage: '默认使用的工作区 slug（英文标识符），例如：general-knowledge、genshin-impact 等。需要在 AnythingLLM 中先创建工作区',
+          component: 'Input',
+          componentProps: {
+            placeholder: 'general-knowledge'
+          }
+        },
+        {
+          field: 'anythingllm_mode',
+          label: '查询模式',
+          bottomHelpMessage: 'chat 模式：带上下文的完整对话，由 AnythingLLM 生成回答；query 模式：仅返回检索到的相关文档片段，由你的 AI 模型生成回答（推荐）',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: 'query - 仅检索（推荐）', value: 'query' },
+              { label: 'chat - 带上下文对话', value: 'chat' }
+            ]
+          }
+        },
+        {
+          field: 'anythingllm_includeSources',
+          label: '显示引用来源',
+          bottomHelpMessage: '开启后，AI 回复知识库内容时会附带引用来源（文档名称）',
+          component: 'Switch'
+        },
+        {
+          field: 'anythingllm_timeout',
+          label: '请求超时时间',
+          bottomHelpMessage: '单次查询的超时时间，单位：毫秒。默认 30000（30秒）',
+          component: 'InputNumber',
+          componentProps: {
+            min: 5000,
+            max: 120000,
+            step: 1000,
+            addonAfter: '毫秒'
+          }
+        },
+        {
+          field: 'anythingllm_maxRetries',
+          label: '最大重试次数',
+          bottomHelpMessage: '请求失败时的最大重试次数，默认 3 次',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+            max: 5,
+            step: 1
+          }
+        },
+        {
+          field: 'anythingllm_cacheEnable',
+          label: '启用查询缓存',
+          bottomHelpMessage: '开启后，相同的查询在缓存有效期内会直接返回缓存结果，减少 API 调用',
+          component: 'Switch'
+        },
+        {
+          field: 'anythingllm_cacheTTL',
+          label: '缓存有效期',
+          bottomHelpMessage: '查询结果缓存的有效时间，单位：毫秒。默认 300000（5分钟）',
+          component: 'InputNumber',
+          componentProps: {
+            min: 60000,
+            max: 3600000,
+            step: 60000,
+            addonAfter: '毫秒'
+          }
         },
         {
           label: '杂项',
