@@ -525,7 +525,10 @@ export function supportGuoba() {
         {
           field: 'claudeApiBaseUrl',
           label: 'claude API 反代',
-          component: 'Input'
+          component: 'Input',
+          componentProps: {
+            placeholder: 'http://claude-api.misaka20001.com'
+          }
         },
         {
           field: 'claudeApiMaxToken',
@@ -1401,7 +1404,7 @@ export function supportGuoba() {
         {
           field: 'smartMode',
           label: '智能模式 开关',
-          bottomHelpMessage: '支持 OpenAI API、千问、Gemini。开启后Bot可以使用以下群管、绘画、发视频发音乐、联网搜索等工具。注意较费token。配合“允许机器人读取近期的群聊聊天记录”效果更佳',
+          bottomHelpMessage: '支持 OpenAI API、Gemini、千问、Claude 模式。开启后Bot可以使用以下群管、绘画、发视频发音乐、联网搜索等工具。注意较费token。配合“允许机器人读取近期的群聊聊天记录”效果更佳',
           component: 'Switch'
         },
         {
@@ -1413,16 +1416,22 @@ export function supportGuoba() {
         {
           field: 'llm_maxToolRounds',
           label: '工具调用最大轮次',
-          bottomHelpMessage: '智能模式中 工具调用最大轮次数，仅支持Gemini模式、OpenAI API模式（呆毛注：因为已支持多工具并行调用，所以通常3轮次就足够处理日常任务了，按需增加）',
+          bottomHelpMessage: '智能模式中 工具调用最大轮次数，支持 OpenAI API、Gemini、千问、Claude 模式（呆毛注：因为已支持多工具并行调用，所以通常3轮次就足够处理日常任务了，按需增加）',
           component: 'InputNumber',
           componentProps: {
             min: 1,
           }
         },
         {
+          field: 'enableForceToolKeywords',
+          label: '启用关键词强制工具',
+          bottomHelpMessage: '命中下方关键词时强制调用工具；目前支持 API、Gemini 接口。已知 DeepSeek 模型不支持。',
+          component: 'Switch'
+        },
+        {
           field: 'geminiForceToolKeywords',
           label: '强制工具关键词',
-          bottomHelpMessage: '强制工具/Agent关键词；包含这里关键词的问题一定会调用工具；目前支持 API、Gemini 接口',
+          bottomHelpMessage: '包含这些关键词的问题会强制调用工具；目前支持 API、Gemini 接口。',
           component: 'GTags',
           componentProps: {
             placeholder: '请输入强制工具关键词',
@@ -1610,15 +1619,15 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'agent_MarkmapToolSwitch',
-          label: '工具新增-思维导图',
-          bottomHelpMessage: '新增 生成markmap思维导图 工具',
+          field: 'generateMathRender_ToolSwitch',
+          label: '工具新增-Markdown图',
+          bottomHelpMessage: '新增 生成支持 Markdown 语法图片、数学公式（纯文本渲染）图片以及流程图（Mermaid 结构图 / 函数图） 工具',
           component: 'Switch'
         },
         {
-          field: 'generateMathRender_ToolSwitch',
-          label: '工具新增-公式及流程图',
-          bottomHelpMessage: '新增 生成支持 Markdown 语法图片、数学公式（纯文本渲染）图片以及流程图（Mermaid 结构图 / 函数图） 工具',
+          field: 'agent_MarkmapToolSwitch',
+          label: '工具新增-思维导图',
+          bottomHelpMessage: '新增 生成markmap思维导图 工具',
           component: 'Switch'
         },
         {
@@ -2354,15 +2363,25 @@ export function supportGuoba() {
         {
           field: 'translateSource',
           label: '翻译来源',
-          bottomHelpMessage: '设置 #gpt翻译 使用的AI来源；可用指令：#gpt翻译帮助 #chatgpt设置翻译来源[openai|gemini|星火|通义千问|xh|qwen]',
+          bottomHelpMessage: '设置 #gpt翻译 使用的翻译来源；可用指令：#gpt翻译帮助 #chatgpt设置翻译来源[openai|gemini|星火|通义千问|xh|qwen|baidu|百度翻译]',
           component: 'Select',
           componentProps: {
             options: [
               { label: 'OpenAI', value: 'openai' },
               { label: 'Gemini', value: 'gemini' },
               { label: '星火', value: 'xh' },
-              { label: '通义千问', value: 'qwen' }
+              { label: '通义千问', value: 'qwen' },
+              { label: '百度翻译', value: 'baidu' }
             ]
+          }
+        },
+        {
+          field: 'baiduTranslateKey',
+          label: '百度翻译Key',
+          bottomHelpMessage: '申请地址 https://api.fanyi.baidu.com/manage/developer 的 申请信息中；用于上面的基于 LLM 的翻译失败后，转用旧版翻译兜底。请填写百度翻译开放平台“通用翻译API”的 APPID 和密钥，格式：APPID:密钥',
+          component: 'InputPassword',
+          componentProps: {
+            placeholder: 'APPID:密钥'
           }
         },
         {
