@@ -1619,6 +1619,12 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'enableDefaultMessageTriggerTool',
+          label: '工具新增-默认指令触发',
+          bottomHelpMessage: '允许LLM触发当前群或全局的云崽 #添加 生成指令（LLM只能理解触发词，无法获取触发内容）',
+          component: 'Switch'
+        },
+        {
           field: 'generateMathRender_ToolSwitch',
           label: '工具新增-Markdown图',
           bottomHelpMessage: '新增 生成支持 Markdown 语法图片、数学公式（纯文本渲染）图片以及流程图（Mermaid 结构图 / 函数图） 工具',
@@ -1753,7 +1759,7 @@ export function supportGuoba() {
           field: 'siliconflow-gemini-Image_help_field',
           label: '帮助: Siliconflow-Plugin',
           component: 'Input',
-          bottomHelpMessage: '1. #g谷歌编辑图片: （工具名 gemini-Image-gg） 增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/doc/guoba_imgs/guobaHelp-Gemini%20Image.webp ; 2. #sgpt编辑图片 （工具名 gpt-Image-2-ss） 配置方法同1，使用 openai 接口接入 gpt-Image ; 3. #d魔搭编辑图片 （工具名 sf-dd-paint） 配置方法参考 https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/moscope.md',
+          bottomHelpMessage: '1. #g谷歌编辑图片: （工具名 gemini-Image-gg） 增加基于sf插件的gemini的图片修改/以图画图工具，需要先安装siliconflow插件：然后配置一个对话接口名为 #g谷歌编辑图片 的接口 ； 参考文档： https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/openrouter_ai.md 参考图： https://github.com/misaka20002/chatgpt-plugin/blob/v2/docs/guoba_imgs/guobaHelp-Gemini%20Image.webp ; 2. #sgpt编辑图片 （工具名 gpt-Image-2-ss） 配置方法同1，使用 openai 接口接入 gpt-Image ; 3. #d魔搭编辑图片 （工具名 sf-dd-paint） 配置方法参考 https://github.com/AIGC-Yunzai/siliconflow-plugin/blob/main/docs/moscope.md',
           componentProps: {
             readonly: true,
             defaultValue: 'https://github.com/AIGC-Yunzai/siliconflow-plugin'
