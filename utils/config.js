@@ -324,11 +324,17 @@ const defaultConfig = {
   poke_userIDs: true,
   agent_MarkmapToolSwitch: false,
   agent_SandboxSwitch: false,
-  agent_VercelSandboxSwitch: false,
-  vercelSandboxMasterOnly: true,
-  vercelSandboxSendCallForward: true,
-  sandboxApiUrl: '',
-  sandboxToken: '',
+  agent_LocalSandboxSwitch: false,
+  localSandboxMasterOnly: true,
+  localSandboxSendCallForward: true,
+  localSandboxNetworkEnabled: false,
+  localSandboxRetentionMinutes: 30,
+  localSandboxChromePath: '',
+  agent_RemoteSandboxSwitch: false,
+  remoteSandboxMasterOnly: true,
+  remoteSandboxSendCallForward: true,
+  remoteSandboxApiUrl: '',
+  remoteSandboxToken: '',
   // Prompt Gallery 画图记录
   enablePromptGallery: false, // 是否启用画图记录（含 tag 标注，推送到 GitHub 仓库）
   promptGalleryRepo: '', // GitHub 仓库地址，如 'user/repo'（建议使用私有仓库）
