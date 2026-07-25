@@ -2191,10 +2191,10 @@ export function supportGuoba() {
         {
           field: 'meme_baseUrl',
           label: 'MEME api',
-          bottomHelpMessage: '默认值：https://misaka20001-memegenerator.hf.space，也可以duplicate这个space然后填写自己的；或自行搭建meme服务器：https://github.com/misaka20002/meme-generator/blob/main/README.md；关于meme的详情请阅读https://github.com/misaka20002/yunzai-meme；重启生效；可用指令：#meme帮助',
+          bottomHelpMessage: '默认值：https://qwqcc-meme.hf.space，也可以duplicate这个space然后填写自己的；或自行搭建meme服务器：https://github.com/misaka20002/meme-generator/blob/main/README.md；关于meme的详情请阅读https://github.com/misaka20002/yunzai-meme；重启生效；可用指令：#meme帮助',
           component: 'Input',
           componentProps: {
-            placeholder: 'https://misaka20001-memegenerator.hf.space',
+            placeholder: 'https://qwqcc-meme.hf.space',
           },
         },
         {
@@ -2259,10 +2259,10 @@ export function supportGuoba() {
         {
           field: 'sandboxApiUrl',
           label: 'vercelSandbox API URL',
-          bottomHelpMessage: '远程沙箱的 HTTPS 地址，例如 https://your-project.vercel.app',
+          bottomHelpMessage: '远程沙箱的 HTTP/HTTPS 地址，例如 https://your-project.vercel.app 或 http://127.0.0.1:3000',
           component: 'Input',
           componentProps: {
-            placeholder: 'https://your-project.vercel.app'
+            placeholder: 'https://your-project.vercel.app 或 http://host:port'
           }
         },
         {
