@@ -39,6 +39,9 @@ const defaultConfig = {
   responsesApiMaxToken: 65536,
   responsesMaxModelTokens: 128000,
   responsesStore: false,
+  enableHostedBuiltinTools: false,
+  responsesFileSearchVectorStoreIds: [],
+  responsesFileSearchMaxNumResults: 10,
   /**
    * @type {'Precise' | 'Balanced' | 'Creative'}
    */
@@ -67,19 +70,6 @@ const defaultConfig = {
   // apiForceUseReverse: false,
   // plus: false,
   // useGPT4: false,
-  xinghuoToken: '',
-  xhmode: 'web',
-  xhAppId: '',
-  xhAPISecret: '',
-  xhAPIKey: '',
-  xhAssistants: '',
-  xhTemperature: 0.5,
-  xhMaxTokens: 1024,
-  xhPromptSerialize: false,
-  xhPrompt: '',
-  xhPromptEval: false,
-  xhRetRegExp: '',
-  xhRetReplace: '',
   promptPrefixOverride: 'Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
   assistantLabel: 'ChatGPT',
   headless: false,
@@ -227,8 +217,6 @@ const defaultConfig = {
   azureTTSKey: '',
   azureTTSRegion: '',
   azureTTSSpeaker: 'zh-CN-XiaochenNeural',
-  voicevoxSpace: '',
-  voicevoxTTSSpeaker: '护士机器子T',
   azureTTSEmotion: false,
   enhanceAzureTTSEmotion: false,
   autoJapanese: false,
@@ -245,21 +233,7 @@ const defaultConfig = {
   smartMode: false,
   forwardToolCallResult: false,
   llm_maxToolRounds: 3,
-  // claude2
-  // claudeAIOrganizationId: '',
-  // claudeAISessionKey: '',
-  // claudeAIReverseProxy: '',
-  // claudeAITimeout: 120,
-  // claudeAIJA3: '772,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,27-5-65281-13-35-0-51-18-16-43-10-45-11-17513-23,29-23-24,0',
-  // claudeAIUA: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
   trssBotUin: '',
-  qwenApiKey: '',
-  qwenModel: 'qwen-turbo',
-  qwenTopP: 0.5,
-  qwenTopK: 50,
-  qwenSeed: 0,
-  qwenTemperature: 1,
-  qwenEnableSearch: true,
   geminiKey: '',
   // geminiKeyArr: '',
   geminiPrompt: 'You are Gemini. Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
@@ -267,7 +241,6 @@ const defaultConfig = {
   geminiBaseUrl: 'https://gemini.ikechan8370.com',
   geminiTemperature: 0.9,
   geminiMaxOutputTokens: 2000,
-  chatglmRefreshToken: '',
   sunoSessToken: '',
   sunoClientToken: '',
   enableChatSuno: false,
@@ -302,13 +275,6 @@ const defaultConfig = {
   forwardReasoning: true,
   geminiEnableGoogleSearch: false,
   geminiEnableCodeExecution: false,
-  // bingAiToken: '', // copilot.microsoft.com accessToken
-  // bingAiClientId: '',
-  // bingAiScope: '140e65af-45d1-4427-bf08-3e7295db6836/ChatAI.ReadWrite openid profile offline_access',
-  // bingAiRefreshToken: '',
-  // bingAiOid: '',
-  // _2captchaKey: '',
-  // bingReasoning: false, // 是否深度思考
   apiMaxToken: 65536,
   maxModelTokens: 128000,
   enableToolPrivateSend: false, // 是否允许智能模式下私聊骚扰其他群友。主人不受影响。
@@ -365,7 +331,6 @@ const defaultConfig = {
   disable_SendAvatarTool: true,
   generateMathRender_ToolSwitch: false,
   generateGraphCalculator_ToolSwitch: false,
-  enableUserProfileTool: false,
   enableGroupMemberSkillTool: false,
   enableDefaultMessageTriggerTool: false,
   mediaRecognitionSource: "Orignal",
@@ -384,11 +349,21 @@ const defaultConfig = {
   replyConfirmType: 111,
   baiduAppBuilderKey: "",
 
-  // 记忆系统配置
-  enableMemory: false, // 是否启用记忆系统
-  maxMemoriesPerUser: 20, // 每个用户最大记忆数量
-  memoryMinImportance: 1, // 附加到对话的最低重要性阈值（1-10）
-  memoryContextLimit: 10, // 每次对话附加的最大记忆数量
+  // 智能模式 V2 记忆系统配置（群聊采集须由 Bot 主人在锅巴或当前群显式授权）
+  enableMemory: false, // 是否启用记忆系统（唯一总开关，同时开放 Memory_Tool 与 userProfile）
+  enableUserProfileHistoryScan: false,
+  maxMemoriesPerUser: 100, // 每用户每作用域（跨群 user / 每群 user_group）的 V2 记忆上限
+  memoryMinImportance: 0.4, // 注入对话的最低重要性阈值（0-1）
+  memoryContextLimit: 8, // 每次对话注入的最大记忆条数
+  memoryGroupCapture: {
+    groups: [], // 授权采集的群列表 [{groupId, switchOn}]，锅巴 GSubForm 管理或 #群记忆开启
+    cronTime: '0 0 4 * * ? *', // 每日提炼 EasyCron，修改后重启生效
+    rawRetentionDays: 30, // 群原文保留天数
+    eventRetentionDays: 90, // 未指定期限的临时事件默认保留天数
+    inputTokenLimit: 30000, // 提取模型输入 Token 上限
+    outputTokenLimit: 4096, // 提取模型输出 Token 上限
+    minConfidence: 0.7, // 提取最低置信度
+  },
 
   // MCP 协议配置
   enableMcp: false, // 是否启用通用的 MCP 协议
@@ -434,6 +409,11 @@ if (fs.existsSync(`${_path}/plugins/chatgpt-plugin/config/config.json`)) {
 }
 config = lodash.merge({}, defaultConfig, config)
 config.version = defaultConfig.version
+
+// V2 记忆迁移：旧版 memoryMinImportance 为 1-10 语义，V2 中 importance 为 0-1，归一化防止注入被全部过滤
+if (typeof config.memoryMinImportance === 'number' && config.memoryMinImportance > 1) {
+  config.memoryMinImportance = Math.min(1, Math.max(0, config.memoryMinImportance / 10))
+}
 
 /** 递归清理从本地读取但 defaultConfig 中已经不存在的多余键 */
 function removeExtraKeys(target, base) {
@@ -535,7 +515,7 @@ export const Config = new Proxy(config, {
     }
     else if (property === 'get_geminiModels') {
       return function () {
-        const defaultArr = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']
+        const defaultArr = ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-image-preview', 'gemini-3-pro-image-preview', 'gemini-pro-latest', 'gemini-flash-latest', 'gemini-flash-lite-latest']
         try {
           const fetchModels = Array.isArray(target.geminiModelsByFetch) ? target.geminiModelsByFetch : [];
           return lodash.uniq([...defaultArr, ...fetchModels]);
