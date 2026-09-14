@@ -148,6 +148,7 @@ const defaultConfig = {
   tts_ffmpeg_path: "/usr/local/bin/ffmpeg",
   meme_turnOff: false,
   meme_baseUrl: "https://qwqcc-meme.hf.space",
+  meme_updateCron: '',
   meme_reply: true,
   meme_forceSharp: true,
   meme_masterProtectDo: true,

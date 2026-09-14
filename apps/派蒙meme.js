@@ -197,8 +197,8 @@ export class memes extends plugin {
     }
 
     this.task = {
-      // 每天的凌晨3点执行
-      cron: generateCronExpression(),
+      // 留空沿用每天凌晨随机时间；定时任务由 loader 注册，修改后重启生效。
+      cron: Config.meme_updateCron?.trim() || generateCronExpression(),
       name: 'memes自动更新任务',
       /** 传 true 表示忽略本地缓存，强制拉取远端（否则定时任务只会把本地缓存重新读一遍，等于空转） */
       fnc: this.init.bind(this, true)
