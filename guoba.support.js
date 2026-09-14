@@ -2040,6 +2040,15 @@ export function supportGuoba() {
           },
         },
         {
+          field: 'meme_updateCron',
+          label: '远程更新 cron',
+          bottomHelpMessage: '可不填，留空时每天在凌晨 2:00–4:59 随机选定一个时间拉取远端表情数据；填写后按 cron 执行，使用机器人所在时区。支持五位（分 时 日 月 周）或六位（秒 分 时 日 月 周），例如 0 3 * * * 表示每天凌晨 3 点；修改后重启生效',
+          component: 'Input',
+          componentProps: {
+            placeholder: '留空使用每天随机时间，例如：0 3 * * *',
+          },
+        },
+        {
           field: 'meme_CD',
           label: 'meme CD',
           bottomHelpMessage: 'meme生成个人CD时间',
