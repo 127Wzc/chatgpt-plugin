@@ -1,8 +1,7 @@
 import { AbstractTool } from './AbstractTool.js'
 import { generateVitsAudio } from '../tts.js'
 import { Config } from '../config.js'
-import { generateAudio, generateAzureAudio, getGroupList } from '../common.js'
-import VoiceVoxTTS from '../tts/voicevox.js'
+import { generateAudio, generateAzureAudio } from '../common.js'
 import uploadRecord from '../uploadRecord.js'
 
 export class SendAudioMessageTool extends AbstractTool {
@@ -18,7 +17,7 @@ export class SendAudioMessageTool extends AbstractTool {
         type: 'number',
         description: 'default is 1, which indicates that the text will be processed in the current ttsMode.' +
           '2 is azureMode.' +
-          '3 or 4 corresponds to vitsMode or voxMode.'
+          '3 is vitsMode.'
       },
       vitsModeRole: {
         type: 'string',
@@ -37,10 +36,6 @@ export class SendAudioMessageTool extends AbstractTool {
       azureModeRole: {
         type: 'string',
         description: 'can be \'随机\' or specified by the user. default is currentRole.'
-      },
-      voxModeRole: {
-        type: 'string',
-        description: 'can be random or currentRole or specified by the user. default is currentRole.'
       },
       speakingEmotion: {
         type: 'string',
@@ -61,10 +56,10 @@ export class SendAudioMessageTool extends AbstractTool {
   description = 'This tool is used to send voice|audio messages, utilize it only if the user grants you permission to do so.'
 
   func = async function (opts, e) {
-    if (!Config.ttsSpace && !Config.azureTTSKey && !Config.voicevoxSpace) {
+    if (!Config.ttsSpace && !Config.azureTTSKey) {
       return 'you don\'t have permission to send audio message due to a lack of a valid ttsKey'
     }
-    let { pendingText, ttsMode, vitsModeRole, azureModeRole, voxModeRole, speakingEmotion, speakingEmotionDegree, targetGroupIdOrQQNumber } = opts
+    let { pendingText, ttsMode, vitsModeRole, azureModeRole, speakingEmotion, speakingEmotionDegree, targetGroupIdOrQQNumber } = opts
     let sendable
     ttsMode = isNaN(ttsMode) || !ttsMode ? 1 : ttsMode
     const defaultTarget = e.isGroup ? e.group_id : e.sender.user_id
@@ -87,13 +82,6 @@ export class SendAudioMessageTool extends AbstractTool {
             , 'vits-uma-genshin-honkai'
           )
           break
-        case 4:
-          if (!Config.voicevoxSpace) return 'audio generation failed, due to a lack of a voicevoxSpace'
-          sendable = await uploadRecord(
-            await VoiceVoxTTS.generateAudio(pendingText, voxModeRole)
-            , 'voicevox'
-          )
-          break
         default:
           sendable = await generateAzureAudio(pendingText, azureModeRole, speakingEmotion, speakingEmotionDegree)
       }
@@ -102,7 +90,12 @@ export class SendAudioMessageTool extends AbstractTool {
       return `audio generation failed,  error: ${JSON.stringify(err)}`
     }
     if (sendable) {
-      let groupList = await getGroupList(e)
+      let groupList
+      try {
+        groupList = await e.bot.getGroupList()
+      } catch (err) {
+        groupList = e.bot.gl
+      }
       try {
         // 判断groupList是Map还是Array
         const isGroupExist = groupList instanceof Map
